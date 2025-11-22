@@ -1010,16 +1010,32 @@ function submitGirls() {
         scoreChanges.push({ player: queen.taker, points: -50 })
 
         if (takerTeam === doublerTeam) {
-          changes.push(
-            `${getPlayerLabel(queen.taker)}: -50 (partner doubled Q${
-              suits[qi]
-            })`
-          )
+          // Same team (partner doubled or self-doubled)
+          if (queen.doubler === queen.taker && queen.forcer !== null) {
+            // Self-doubled but forced by opponent - opponent gets bonus
+            scores[queen.forcer] += 25
+            scoreChanges.push({ player: queen.forcer, points: 25 })
+            changes.push(
+              `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
+                queen.forcer
+              )}: +25 (Q${suits[qi]} self-doubled but forced)`
+            )
+          } else {
+            // Partner doubled or voluntary self-double
+            changes.push(
+              `${getPlayerLabel(queen.taker)}: -50 (partner doubled Q${
+                suits[qi]
+              })`
+            )
+          }
         } else {
+          // Different teams - opponent doubled
+          scores[queen.doubler] += 25
+          scoreChanges.push({ player: queen.doubler, points: 25 })
           changes.push(
-            `${getPlayerLabel(queen.taker)}: -50 (Q${
-              suits[qi]
-            } doubled by opponent)`
+            `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
+              queen.doubler
+            )}: +25 (Q${suits[qi]} doubled by opponent)`
           )
         }
       }
@@ -1080,10 +1096,25 @@ function submitKhteyar() {
       const takerTeam = getTeamIndex(taker)
       const doublerTeam = getTeamIndex(doubler)
       if (takerTeam === doublerTeam) {
+        // Same team (partner doubled or self-doubled)
         scores[taker] += -150
         scoreChanges.push({ player: taker, points: -150 })
-        changes.push(`${getPlayerLabel(taker)}: -150 (partner doubled K♠)`)
+
+        if (doubler === taker && forcer !== null) {
+          // Self-doubled but forced by opponent - opponent gets bonus
+          scores[forcer] += 75
+          scoreChanges.push({ player: forcer, points: 75 })
+          changes.push(
+            `${getPlayerLabel(taker)}: -150, ${getPlayerLabel(
+              forcer
+            )}: +75 (K♠ self-doubled but forced)`
+          )
+        } else {
+          // Partner doubled or voluntary self-double
+          changes.push(`${getPlayerLabel(taker)}: -150 (partner doubled K♠)`)
+        }
       } else {
+        // Different teams - opponent doubled
         scores[taker] += -150
         scores[doubler] += 75
         scoreChanges.push({ player: taker, points: -150 })
