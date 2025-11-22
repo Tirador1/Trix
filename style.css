@@ -710,66 +710,199 @@ h1 {
 }
 
 .history-list {
-  max-height: 300px;
+  max-height: 500px;
   overflow-y: auto;
+  padding-right: 5px;
 }
 
-.history-item {
-  background: #2d3a4f;
+/* Kingdom History Sections */
+.kingdom-history-section {
+  background: linear-gradient(145deg, #2d3a4f, #1a2535);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 2px solid rgba(255, 215, 0, 0.3);
+}
+
+.kingdom-history-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(255, 215, 0, 0.2);
+}
+
+.kingdom-owner-icon {
+  font-size: clamp(24px, 6vw, 32px);
+}
+
+.kingdom-owner-name {
+  font-size: clamp(18px, 5vw, 22px);
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.kingdom-games-table {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Game Table Container */
+.game-table-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
   padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  font-size: clamp(13px, 3.8vw, 15px);
-  word-wrap: break-word;
-  line-height: 1.5;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.history-header {
+.game-table-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.3);
 }
 
-.history-time {
+.game-name {
+  font-size: clamp(16px, 4.5vw, 18px);
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.game-time {
   font-size: clamp(11px, 3vw, 13px);
   color: #aaa;
   font-style: italic;
 }
 
-.history-details {
-  margin-bottom: 8px;
-  color: #ddd;
+/* Results Table */
+.game-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
 }
 
-.history-actions {
+.game-results-table thead tr {
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.game-results-table th {
+  padding: 10px 8px;
+  text-align: left;
+  font-size: clamp(13px, 3.8vw, 15px);
+  color: #ffd700;
+  font-weight: 600;
+  border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+}
+
+.game-results-table td {
+  padding: 10px 8px;
+  font-size: clamp(13px, 3.8vw, 15px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.game-results-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.player-cell {
   display: flex;
+  align-items: center;
   gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+  color: #fff;
 }
 
-.history-btn {
+.player-icon-small {
+  font-size: clamp(18px, 5vw, 22px);
+}
+
+.score-cell {
+  font-weight: bold;
+  font-size: clamp(15px, 4.5vw, 18px);
+  text-align: center;
+}
+
+.score-cell.positive {
+  color: #4ecdc4;
+}
+
+.score-cell.negative {
+  color: #ff6b6b;
+}
+
+.score-cell.neutral {
+  color: #aaa;
+}
+
+.details-cell {
+  color: #ddd;
+  font-size: clamp(12px, 3.5vw, 14px);
+}
+
+.details-row {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.game-details {
+  padding: 8px !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.detail-item {
+  background: rgba(255, 215, 0, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: clamp(12px, 3.5vw, 14px);
+  color: #ffd700;
+  white-space: nowrap;
+}
+
+.game-table-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.delete-game-btn {
   padding: 8px 16px;
+  background: #ff6b6b;
+  color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: clamp(12px, 3.5vw, 14px);
   font-weight: 600;
   transition: all 0.2s;
-  width: 100%;
 }
 
-.history-btn.delete {
-  background: #ff6b6b;
-  color: white;
-}
-
-.history-btn.delete:hover {
+.delete-game-btn:hover {
   background: #ff5252;
-  transform: scale(1.02);
+  transform: scale(1.05);
+}
+
+/* Scrollbar styling for history list */
+.history-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 0, 0.3);
+  border-radius: 10px;
+}
+
+.history-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 215, 0, 0.5);
 }
 
 /* Reset Button */

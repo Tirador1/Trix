@@ -1143,14 +1143,46 @@ function finishGame(game, details, scoreChanges) {
     hour: '2-digit',
     minute: '2-digit',
   })
+
+  // Convert scoreChanges array to indexed format for easier rendering
+  const scoreChangesIndexed = [0, 0, 0, 0]
+  scoreChanges.forEach((change) => {
+    scoreChangesIndexed[change.player] = change.points
+  })
+
   const record = {
     owner: getOwnerLabel(currentOwner),
     ownerIndex: currentOwner,
     game,
     details,
     timestamp,
-    scoreChanges,
+    scoreChanges: scoreChangesIndexed, // Use indexed format
+    scoreChangesOriginal: scoreChanges, // Keep original for deleteGame
   }
+
+  // Add game-specific data for table rendering
+  if (game === 'Trix') {
+    record.positions = [...trixPositions]
+  } else if (game === 'Latosh' || game === 'Dinari') {
+    record.cardCounts = [...cardCounts]
+  } else if (game === 'Banat') {
+    // Store queen details for each player
+    record.queensDetails = []
+    for (let pi = 0; pi < 4; pi++) {
+      const queens = []
+      for (let qi = 0; qi < 4; qi++) {
+        if (queensState[qi].taker === pi) {
+          const suits = ['♠', '♥', '♦', '♣']
+          queens.push(queensState[qi].doubled ? `${suits[qi]}×2` : suits[qi])
+        }
+      }
+      record.queensDetails[pi] = queens.length > 0 ? queens.join(' ') : '-'
+    }
+  } else if (game === 'Khteyar') {
+    record.khteyarTaker = khteyarState.taker
+    record.khteyarDoubled = khteyarState.doubled
+  }
+
   history.push(record)
   kingdomHistory.push(record) // Track for this kingdom
 
@@ -1174,28 +1206,154 @@ function finishGame(game, details, scoreChanges) {
   }
 }
 
-// Render History
+// Render History - Show kingdoms individually with tables
 function renderHistory() {
   const c = document.getElementById('historyList')
-  c.innerHTML = history
-    .slice()
-    .reverse()
-    .map((h, reverseIdx) => {
-      const actualIdx = history.length - 1 - reverseIdx
-      return `
-        <div class="history-item">
-          <div class="history-header">
-            <strong>${h.owner}'s ${h.game}</strong>
-            <span class="history-time">${h.timestamp}</span>
-          </div>
-          <div class="history-details">${h.details}</div>
-          <div class="history-actions">
-            <button class="history-btn delete" onclick="deleteGame(${actualIdx})" title="Delete and reverse this game">🗑️ Delete</button>
-          </div>
+  if (history.length === 0) {
+    c.innerHTML =
+      '<div style="text-align:center;color:#aaa;padding:20px">No games played yet</div>'
+    return
+  }
+
+  // Group history by kingdom owner
+  const kingdomGroups = {}
+  for (let i = 0; i < 4; i++) {
+    kingdomGroups[i] = history.filter((h) => h.ownerIndex === i)
+  }
+
+  // Render each player's kingdom
+  let html = ''
+  for (let i = 0; i < 4; i++) {
+    const games = kingdomGroups[i]
+    if (games.length === 0) continue
+
+    html += `
+      <div class="kingdom-history-section">
+        <div class="kingdom-history-header">
+          <span class="kingdom-owner-icon">${playerIcons[i]}</span>
+          <span class="kingdom-owner-name">${getOwnerLabel(i)}'s Kingdom</span>
         </div>
-      `
+        <div class="kingdom-games-table">
+    `
+
+    games.forEach((h, idx) => {
+      const realIdx = history.indexOf(h)
+      html += renderGameTable(h, realIdx)
     })
-    .join('')
+
+    html += `
+        </div>
+      </div>
+    `
+  }
+
+  c.innerHTML = html
+}
+
+// Render individual game table
+function renderGameTable(h, realIdx) {
+  let tableHtml = `
+    <div class="game-table-container">
+      <div class="game-table-header">
+        <span class="game-name">${h.game}</span>
+        <span class="game-time">${h.timestamp}</span>
+      </div>
+      <table class="game-results-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Score</th>
+            ${h.game === 'Banat' ? '<th>Details</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+  `
+
+  // Generate table rows based on game type
+  for (let pi = 0; pi < 4; pi++) {
+    const score = h.scoreChanges[pi]
+    const scoreClass =
+      score > 0 ? 'positive' : score < 0 ? 'negative' : 'neutral'
+    const scoreDisplay = score > 0 ? `+${score}` : score
+
+    let details = ''
+    if (h.game === 'Trix') {
+      const position = h.positions?.indexOf(pi)
+      if (position === 0) details = '🥇 1st'
+      else if (position === 1) details = '🥈 2nd'
+      else if (position === 2) details = '🥉 3rd'
+      else if (position === 3) details = '4th'
+    } else if (h.game === 'Latosh' || h.game === 'Dinari') {
+      const count = h.cardCounts?.[pi] || 0
+      if (count > 0) details = `${count} cards`
+    } else if (h.game === 'Banat') {
+      details = h.queensDetails?.[pi] || '-'
+    } else if (h.game === 'Khteyar') {
+      if (h.khteyarTaker === pi) {
+        details = h.khteyarDoubled ? '👑 (Doubled)' : '👑'
+      }
+    }
+
+    tableHtml += `
+      <tr>
+        <td class="player-cell">
+          <span class="player-icon-small">${playerIcons[pi]}</span>
+          ${getPlayerLabel(pi)}
+        </td>
+        <td class="score-cell ${scoreClass}">${scoreDisplay}</td>
+        ${h.game === 'Banat' ? `<td class="details-cell">${details}</td>` : ''}
+      </tr>
+    `
+  }
+
+  // Add details row for non-Banat games
+  if (h.game !== 'Banat') {
+    tableHtml += `
+      <tr class="details-row">
+        <td colspan="2" class="game-details">
+    `
+
+    for (let pi = 0; pi < 4; pi++) {
+      let details = ''
+      if (h.game === 'Trix') {
+        const position = h.positions?.indexOf(pi)
+        if (position === 0) details = `${playerIcons[pi]} 🥇 1st`
+        else if (position === 1) details = `${playerIcons[pi]} 🥈 2nd`
+        else if (position === 2) details = `${playerIcons[pi]} 🥉 3rd`
+        else if (position === 3) details = `${playerIcons[pi]} 4th`
+      } else if (h.game === 'Latosh' || h.game === 'Dinari') {
+        const count = h.cardCounts?.[pi] || 0
+        if (count > 0) details = `${playerIcons[pi]} ${count} cards`
+      } else if (h.game === 'Khteyar') {
+        if (h.khteyarTaker === pi) {
+          details = h.khteyarDoubled
+            ? `${playerIcons[pi]} 👑 (Doubled)`
+            : `${playerIcons[pi]} 👑`
+        }
+      }
+      if (details) {
+        tableHtml += `<span class="detail-item">${details}</span>`
+      }
+    }
+
+    tableHtml += `
+        </td>
+      </tr>
+    `
+  }
+
+  tableHtml += `
+        </tbody>
+      </table>
+      <div class="game-table-actions">
+        <button class="delete-game-btn" onclick="deleteGame(${realIdx})">
+          🗑️ Delete
+        </button>
+      </div>
+    </div>
+  `
+
+  return tableHtml
 }
 
 // Check Game End
@@ -1347,10 +1505,17 @@ function deleteGame(idx) {
   // Mark kingdom as incomplete so it can be played again
   kingdoms[ownerIdx][record.game] = false
 
-  // Reverse the score changes
-  record.scoreChanges.forEach((change) => {
-    scores[change.player] -= change.points
-  })
+  // Reverse the score changes using original format or indexed format
+  if (record.scoreChangesOriginal) {
+    record.scoreChangesOriginal.forEach((change) => {
+      scores[change.player] -= change.points
+    })
+  } else {
+    // Fallback for old format
+    record.scoreChanges.forEach((points, player) => {
+      scores[player] -= points
+    })
+  }
 
   // Remove this record from history
   history.splice(idx, 1)
