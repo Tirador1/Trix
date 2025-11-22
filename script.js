@@ -25,12 +25,12 @@ let achievements = {
 // Game-specific state
 let cardCounts = [0, 0, 0, 0] // For Latosh/Dinari
 let queensState = {
-  0: { taker: null, doubled: false, doubler: null },
-  1: { taker: null, doubled: false, doubler: null },
-  2: { taker: null, doubled: false, doubler: null },
-  3: { taker: null, doubled: false, doubler: null },
+  0: { taker: null, doubled: false, doubler: null, forcer: null },
+  1: { taker: null, doubled: false, doubler: null, forcer: null },
+  2: { taker: null, doubled: false, doubler: null, forcer: null },
+  3: { taker: null, doubled: false, doubler: null, forcer: null },
 }
-let khteyarState = { taker: null, doubled: false, doubler: null }
+let khteyarState = { taker: null, doubled: false, doubler: null, forcer: null }
 let trixPositions = [null, null, null, null] // positions 0-3 for 1st-4th place
 let gameStep = 'select' // 'select', 'double', 'assign'
 let currentQueenIndex = null
@@ -284,12 +284,12 @@ function selectGame(g) {
   // Reset game-specific state
   cardCounts = [0, 0, 0, 0]
   queensState = {
-    0: { taker: null, doubled: false, doubler: null },
-    1: { taker: null, doubled: false, doubler: null },
-    2: { taker: null, doubled: false, doubler: null },
-    3: { taker: null, doubled: false, doubler: null },
+    0: { taker: null, doubled: false, doubler: null, forcer: null },
+    1: { taker: null, doubled: false, doubler: null, forcer: null },
+    2: { taker: null, doubled: false, doubler: null, forcer: null },
+    3: { taker: null, doubled: false, doubler: null, forcer: null },
   }
-  khteyarState = { taker: null, doubled: false, doubler: null }
+  khteyarState = { taker: null, doubled: false, doubler: null, forcer: null }
   trixPositions = [null, null, null, null]
   gameStep = 'select'
   currentQueenIndex = null
@@ -627,6 +627,39 @@ function renderGirlsForm(f) {
         </div>
       </div>
     `
+  } else if (gameStep === 'askForced') {
+    f.innerHTML = `
+      <div class="game-form">
+        <div class="instruction-text">Was ${getPlayerLabel(
+          queensState[currentQueenIndex].taker
+        )} forced to take this queen?</div>
+        <div class="action-row">
+          <button class="action-btn double" onclick="setQueenForced(true)">Yes, Forced</button>
+          <button class="action-btn cancel" onclick="setQueenForced(false)">No</button>
+        </div>
+      </div>
+    `
+  } else if (gameStep === 'assignForcer') {
+    f.innerHTML = `
+      <div class="game-form">
+        <div class="instruction-text">Who forced ${getPlayerLabel(
+          queensState[currentQueenIndex].taker
+        )} to take the Q${suits[currentQueenIndex]}?</div>
+        <div class="player-table">
+          ${[0, 1, 2, 3]
+            .filter((pi) => pi !== queensState[currentQueenIndex].taker)
+            .map(
+              (pi) => `
+            <div class="player-seat" onclick="assignQueenForcer(${pi})">
+              <div class="player-icon">${playerIcons[pi]}</div>
+              <h3>${getPlayerLabel(pi)}</h3>
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+      </div>
+    `
   }
 }
 
@@ -657,6 +690,34 @@ function setQueenDoubled(doubled) {
 
 function assignQueenDoubler(pi) {
   queensState[currentQueenIndex].doubler = pi
+
+  // Check if taker and doubler are the same person (self-double)
+  if (queensState[currentQueenIndex].taker === pi) {
+    // Ask if they were forced
+    gameStep = 'askForced'
+    renderGirlsForm(document.getElementById('gameForm'))
+  } else {
+    // Different players, proceed normally
+    currentQueenIndex = null
+    gameStep = 'select'
+    renderGirlsForm(document.getElementById('gameForm'))
+  }
+}
+
+function setQueenForced(forced) {
+  if (forced) {
+    gameStep = 'assignForcer'
+    renderGirlsForm(document.getElementById('gameForm'))
+  } else {
+    queensState[currentQueenIndex].forcer = null
+    currentQueenIndex = null
+    gameStep = 'select'
+    renderGirlsForm(document.getElementById('gameForm'))
+  }
+}
+
+function assignQueenForcer(pi) {
+  queensState[currentQueenIndex].forcer = pi
   currentQueenIndex = null
   gameStep = 'select'
   renderGirlsForm(document.getElementById('gameForm'))
@@ -667,6 +728,7 @@ function cancelQueenSelection() {
     taker: null,
     doubled: false,
     doubler: null,
+    forcer: null,
   }
   currentQueenIndex = null
   gameStep = 'select'
@@ -732,6 +794,39 @@ function renderKhteyarForm(f) {
         </div>
       </div>
     `
+  } else if (gameStep === 'askForced') {
+    f.innerHTML = `
+      <div class="game-form">
+        <div class="instruction-text">Was ${getPlayerLabel(
+          khteyarState.taker
+        )} forced to take the K♠?</div>
+        <div class="action-row">
+          <button class="action-btn double" onclick="setKhteyarForced(true)">Yes, Forced</button>
+          <button class="action-btn cancel" onclick="setKhteyarForced(false)">No</button>
+        </div>
+      </div>
+    `
+  } else if (gameStep === 'assignForcer') {
+    f.innerHTML = `
+      <div class="game-form">
+        <div class="instruction-text">Who forced ${getPlayerLabel(
+          khteyarState.taker
+        )} to take the K♠?</div>
+        <div class="player-table">
+          ${[0, 1, 2, 3]
+            .filter((pi) => pi !== khteyarState.taker)
+            .map(
+              (pi) => `
+            <div class="player-seat" onclick="assignKhteyarForcer(${pi})">
+              <div class="player-icon">${playerIcons[pi]}</div>
+              <h3>${getPlayerLabel(pi)}</h3>
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+      </div>
+    `
   }
 }
 
@@ -757,6 +852,30 @@ function setKhteyarDoubled(doubled) {
 
 function assignKhteyarDoubler(pi) {
   khteyarState.doubler = pi
+
+  // Check if taker and doubler are the same person (self-double)
+  if (khteyarState.taker === pi) {
+    // Ask if they were forced
+    gameStep = 'askForced'
+    renderKhteyarForm(document.getElementById('gameForm'))
+  } else {
+    // Different players, proceed to submit
+    submitKhteyar()
+  }
+}
+
+function setKhteyarForced(forced) {
+  if (forced) {
+    gameStep = 'assignForcer'
+    renderKhteyarForm(document.getElementById('gameForm'))
+  } else {
+    khteyarState.forcer = null
+    submitKhteyar()
+  }
+}
+
+function assignKhteyarForcer(pi) {
+  khteyarState.forcer = pi
   submitKhteyar()
 }
 
@@ -836,10 +955,24 @@ function submitGirls() {
         scoreChanges.push({ player: queen.taker, points: -50 })
 
         if (queen.doubler === queen.taker) {
-          changes.push(
-            `${getPlayerLabel(queen.taker)}: -50 (self-doubled Q${suits[qi]})`
-          )
+          // Self-doubled: check if forced
+          if (queen.forcer !== null) {
+            // Forced to take own doubled queen - forcer gets bonus
+            scores[queen.forcer] += 25
+            scoreChanges.push({ player: queen.forcer, points: 25 })
+            changes.push(
+              `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
+                queen.forcer
+              )}: +25 (Q${suits[qi]} self-doubled but forced)`
+            )
+          } else {
+            // Voluntary self-double - no bonus
+            changes.push(
+              `${getPlayerLabel(queen.taker)}: -50 (self-doubled Q${suits[qi]})`
+            )
+          }
         } else {
+          // Different players - normal bonus
           scores[queen.doubler] += 25
           scoreChanges.push({ player: queen.doubler, points: 25 })
           changes.push(
@@ -886,16 +1019,32 @@ function submitKhteyar() {
   const taker = khteyarState.taker
   const doubled = khteyarState.doubled
   const doubler = khteyarState.doubler
+  const forcer = khteyarState.forcer
   const changes = []
   const scoreChanges = []
 
   if (doubled) {
     if (mode === 'individual') {
       if (doubler === taker) {
+        // Self-doubled: check if forced
         scores[taker] += -150
         scoreChanges.push({ player: taker, points: -150 })
-        changes.push(`${getPlayerLabel(taker)}: -150 (self-doubled K♠)`)
+
+        if (forcer !== null) {
+          // Forced to take own doubled king - forcer gets bonus
+          scores[forcer] += 75
+          scoreChanges.push({ player: forcer, points: 75 })
+          changes.push(
+            `${getPlayerLabel(taker)}: -150, ${getPlayerLabel(
+              forcer
+            )}: +75 (K♠ self-doubled but forced)`
+          )
+        } else {
+          // Voluntary self-double - no bonus
+          changes.push(`${getPlayerLabel(taker)}: -150 (self-doubled K♠)`)
+        }
       } else {
+        // Different players - normal bonus
         scores[taker] += -150
         scores[doubler] += 75
         scoreChanges.push({ player: taker, points: -150 })
@@ -1016,12 +1165,12 @@ function resetCurrentGame() {
   // Reset all game-specific state
   cardCounts = [0, 0, 0, 0]
   queensState = {
-    0: { taker: null, doubled: false, doubler: null },
-    1: { taker: null, doubled: false, doubler: null },
-    2: { taker: null, doubled: false, doubler: null },
-    3: { taker: null, doubled: false, doubler: null },
+    0: { taker: null, doubled: false, doubler: null, forcer: null },
+    1: { taker: null, doubled: false, doubler: null, forcer: null },
+    2: { taker: null, doubled: false, doubler: null, forcer: null },
+    3: { taker: null, doubled: false, doubler: null, forcer: null },
   }
-  khteyarState = { taker: null, doubled: false, doubler: null }
+  khteyarState = { taker: null, doubled: false, doubler: null, forcer: null }
   trixPositions = [null, null, null, null]
   gameStep = 'select'
   currentQueenIndex = null
