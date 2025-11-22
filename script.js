@@ -570,7 +570,11 @@ function renderGirlsForm(f) {
         <div id="girlsError" class="validation-error"></div>
         <div class="action-row">
           <button class="action-btn cancel" onclick="resetCurrentGame()">Reset</button>
-          <button class="submit-game" onclick="submitGirls()" style="margin:0;max-width:none;">Submit Girls</button>
+          <button class="submit-game" onclick="submitGirls()" ${
+            Object.values(queensState).some((q) => q.taker === null)
+              ? 'disabled'
+              : ''
+          } style="margin:0;max-width:none;">Submit Banat</button>
         </div>
       </div>
     `
@@ -941,13 +945,30 @@ function submitDinari() {
 }
 
 function submitGirls() {
-  const changes = []
-  const scoreChanges = []
+  // Validate that all 4 queens are assigned
+  const unassignedQueens = []
   const suits = ['♠', '♥', '♦', '♣']
 
   for (let qi = 0; qi < 4; qi++) {
+    if (queensState[qi].taker === null) {
+      unassignedQueens.push(`Q${suits[qi]}`)
+    }
+  }
+
+  if (unassignedQueens.length > 0) {
+    document.getElementById(
+      'girlsError'
+    ).textContent = `Please assign all queens! Missing: ${unassignedQueens.join(
+      ', '
+    )}`
+    return
+  }
+
+  const changes = []
+  const scoreChanges = []
+
+  for (let qi = 0; qi < 4; qi++) {
     const queen = queensState[qi]
-    if (queen.taker === null) continue
 
     if (queen.doubled) {
       if (mode === 'individual') {
