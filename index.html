@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shami Trix Score Calculator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>🃏 Shami Trix Calculator</h1>
+
+      <div class="mode-select" id="modeSelect">
+        <button
+          class="mode-btn active"
+          id="indBtn"
+          onclick="setMode('individual')"
+        >
+          Individual (4 Players)
+        </button>
+        <button class="mode-btn" id="partBtn" onclick="setMode('partnership')">
+          Partnership (2 Teams)
+        </button>
+      </div>
+
+      <div class="setup-panel" id="setupPanel">
+        <h2 style="text-align: center; margin-bottom: 20px">Player Setup</h2>
+        <div id="playerInputs"></div>
+        <button class="start-btn" onclick="startGame()">Start Game</button>
+      </div>
+
+      <div class="game-area" id="gameArea">
+        <div class="scoreboard">
+          <h2>📊 Scoreboard</h2>
+          <div class="scores-grid" id="scoresGrid"></div>
+        </div>
+
+        <div
+          class="game-selector"
+          id="gameSelector"
+          style="display: none"
+        ></div>
+
+        <div
+          class="current-kingdom"
+          id="currentKingdom"
+          style="display: none"
+        ></div>
+
+        <div class="history">
+          <h3>📜 Game History</h3>
+          <div class="history-list" id="historyList"></div>
+        </div>
+
+        <button class="reset-btn" onclick="resetGame()">🔄 Reset Game</button>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
