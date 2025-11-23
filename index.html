@@ -2,57 +2,94 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Shami Trix Score Calculator</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>حاسبة تركس الشامية</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="container">
-      <h1>🃏 Shami Trix Calculator</h1>
-
       <div class="mode-select" id="modeSelect">
         <button
           class="mode-btn active"
           id="indBtn"
           onclick="setMode('individual')"
         >
-          Individual (4 Players)
+          فردي
         </button>
         <button class="mode-btn" id="partBtn" onclick="setMode('partnership')">
-          Partnership (2 Teams)
+          فِرَق
         </button>
       </div>
 
       <div class="setup-panel" id="setupPanel">
-        <h2 style="text-align: center; margin-bottom: 20px">Player Setup</h2>
+        <h2 style="text-align: center; margin-bottom: 20px">إعداد اللاعبين</h2>
         <div id="playerInputs"></div>
-        <button class="start-btn" onclick="startGame()">Start Game</button>
+        <button class="start-btn" onclick="startGame()">ابدأ اللعبة</button>
       </div>
 
       <div class="game-area" id="gameArea">
-        <div class="scoreboard">
-          <h2>📊 Scoreboard</h2>
-          <div class="scores-grid" id="scoresGrid"></div>
+        <div class="top-bar">
+          <button
+            class="icon-btn"
+            onclick="toggleScoreboard()"
+            title="شوف النتيجة"
+          >
+            📊 <span class="btn-label">النتيجة</span>
+          </button>
+          <button
+            class="icon-btn"
+            onclick="toggleHistory()"
+            title="شوف التاريخ"
+          >
+            📜 <span class="btn-label">التاريخ</span>
+          </button>
+          <button class="icon-btn" onclick="resetGame()" title="ابدأ من جديد">
+            🔄 <span class="btn-label">جديد</span>
+          </button>
         </div>
 
-        <div
-          class="game-selector"
-          id="gameSelector"
-          style="display: none"
-        ></div>
+        <div class="game-content">
+          <div
+            class="game-selector"
+            id="gameSelector"
+            style="display: none"
+          ></div>
 
-        <div
-          class="current-kingdom"
-          id="currentKingdom"
-          style="display: none"
-        ></div>
-
-        <div class="history">
-          <h3>📜 Game History</h3>
-          <div class="history-list" id="historyList"></div>
+          <div
+            class="current-kingdom"
+            id="currentKingdom"
+            style="display: none"
+          ></div>
         </div>
+      </div>
 
-        <button class="reset-btn" onclick="resetGame()">🔄 Reset Game</button>
+      <!-- Scoreboard Popup -->
+      <div class="overlay" id="scoreboardOverlay" onclick="toggleScoreboard()">
+        <div class="popup scoreboard-popup" onclick="event.stopPropagation()">
+          <div class="popup-header">
+            <h2>📊 لوحة النتائج</h2>
+            <button class="close-btn" onclick="toggleScoreboard()">✕</button>
+          </div>
+          <div class="popup-content">
+            <div class="scores-grid" id="scoresGrid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Popup -->
+      <div class="overlay" id="historyOverlay" onclick="toggleHistory()">
+        <div class="popup history-popup" onclick="event.stopPropagation()">
+          <div class="popup-header">
+            <h2>📜 تاريخ اللعبة</h2>
+            <button class="close-btn" onclick="toggleHistory()">✕</button>
+          </div>
+          <div class="popup-content">
+            <div class="history-list" id="historyList"></div>
+          </div>
+        </div>
       </div>
     </div>
 

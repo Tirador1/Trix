@@ -1,25 +1,59 @@
 // Game State
 let mode = 'individual'
-let players = ['Player 1', 'Player 2', 'Player 3', 'Player 4']
-let teamNames = ['Team 1', 'Team 2']
+let players = ['لاعب ١', 'لاعب ٢', 'لاعب ٣', 'لاعب ٤']
+let teamNames = ['فريق ١', 'فريق ٢']
 let scores = [0, 0, 0, 0]
 let kingdoms = {}
 let history = []
 let currentOwner = null
 let currentGame = null
-const games = ['Trix', 'Latosh', 'Dinari', 'Banat', 'Khteyar']
+const games = ['تركس', 'لطش', 'ديناري', 'بنات', 'ختيار']
 let gameInProgress = false // Track if a game form is active
 let currentPlayerIndex = 0 // Track which player's turn it is
 let kingdomHistory = [] // Track each kingdom's games separately
 
 // Player icons (emojis)
 const playerIcons = ['🎮', '🎯', '🎲', '🎪']
+// Player images - update these paths to your actual image files
+const playerImages = [
+  'assets/p1.png',
+  'assets/p2.png',
+  'assets/p3.png',
+  'assets/p4.png',
+]
+
+// Helper function to get player icon HTML
+function getPlayerIcon(pi, isSmall = false) {
+  const className = isSmall ? 'player-icon-small' : 'player-icon'
+  return `<div class="${className}" style="background-image: url('${playerImages[pi]}')"></div>`
+}
+
+// Helper function to get inline player icon for text
+function getPlayerIconInline(pi) {
+  return `<img src="${
+    playerImages[pi]
+  }" class="player-icon-inline" alt="Player ${pi + 1}">`
+}
 
 // Achievements tracking
 let achievements = {
   kingLover: {}, // Track Khteyar count per player
   toshi: {}, // Track 50-point Trix finishes per player
   kingOfGirls: {}, // Track 4-queen games per player
+}
+
+// Team achievements (partnership mode only)
+let teamAchievements = {
+  queenCollectors: {}, // Track total queens taken by team across games
+  kingHunters: {}, // Track K♥ taken by team
+  consistentLosers: {}, // Track 50+100 Trix scores by team
+}
+
+// Team achievement flags to show popup only once
+let teamAchievementShown = {
+  queenCollectors: { 0: false, 1: false },
+  kingHunters: { 0: false, 1: false },
+  consistentLosers: { 0: false, 1: false },
 }
 
 // Game-specific state
@@ -55,22 +89,38 @@ function renderSetup() {
       .map(
         (p, i) => `
       <div class="player-input">
-        <label>Player ${i + 1} ${playerIcons[i]}</label>
-        <input type="text" id="player${i}" value="${p}">
+        <label>لاعب ${i + 1} ${getPlayerIconInline(i)}</label>
+        <input type="text" id="player${i}" placeholder="${p}" onfocus="this.placeholder=''">
       </div>
     `
       )
       .join('')}</div>`
   } else {
     c.innerHTML = `
-      <div class="player-inputs">
-        <div class="player-input">
-          <label>🔵 Team 1 Name</label>
-          <input type="text" id="team0" value="${teamNames[0]}">
+      <div class="team-input">
+        <h4>🔵 فريق ١</h4>
+        <div class="player-inputs">
+          <div class="player-input">
+            <label>لاعب ١ ${getPlayerIconInline(0)}</label>
+            <input type="text" id="player0" placeholder="ادخل اسم اللاعب" onfocus="this.placeholder=''">
+          </div>
+          <div class="player-input">
+            <label>لاعب ٢ ${getPlayerIconInline(2)}</label>
+            <input type="text" id="player2" placeholder="ادخل اسم اللاعب" onfocus="this.placeholder=''">
+          </div>
         </div>
-        <div class="player-input">
-          <label>🔴 Team 2 Name</label>
-          <input type="text" id="team1" value="${teamNames[1]}">
+      </div>
+      <div class="team-input">
+        <h4>🔴 فريق ٢</h4>
+        <div class="player-inputs">
+          <div class="player-input">
+            <label>لاعب ١ ${getPlayerIconInline(1)}</label>
+            <input type="text" id="player1" placeholder="ادخل اسم اللاعب" onfocus="this.placeholder=''">
+          </div>
+          <div class="player-input">
+            <label>لاعب ٢ ${getPlayerIconInline(3)}</label>
+            <input type="text" id="player3" placeholder="ادخل اسم اللاعب" onfocus="this.placeholder=''">
+          </div>
         </div>
       </div>
     `
@@ -85,19 +135,23 @@ function startGame() {
       if (inp) players[i] = inp.value.trim() || `Player ${i + 1}`
     }
   } else {
-    for (let i = 0; i < 2; i++) {
-      const inp = document.getElementById(`team${i}`)
-      if (inp) teamNames[i] = inp.value.trim() || `Team ${i + 1}`
+    // Keep default team names
+    teamNames = ['Team 1', 'Team 2']
+    // Read player names
+    for (let i = 0; i < 4; i++) {
+      const inp = document.getElementById(`player${i}`)
+      if (inp) players[i] = inp.value.trim() || `Player ${i + 1}`
     }
   }
 
   for (let i = 0; i < 4; i++) {
     kingdoms[i] = {
-      Trix: false,
-      Latosh: false,
-      Dinari: false,
-      Banat: false,
-      Khteyar: false,
+      تركس: false,
+      لطش: false,
+      ديناري: false,
+      بنات: false,
+      ختيار: false,
+      confirmed: false,
     }
   }
   scores = [0, 0, 0, 0]
@@ -110,6 +164,16 @@ function startGame() {
     toshi: {},
     kingOfGirls: {},
   }
+  teamAchievements = {
+    queenCollectors: { 0: 0, 1: 0 },
+    kingHunters: { 0: 0, 1: 0 },
+    consistentLosers: { 0: 0, 1: 0 },
+  }
+  teamAchievementShown = {
+    queenCollectors: { 0: false, 1: false },
+    kingHunters: { 0: false, 1: false },
+    consistentLosers: { 0: false, 1: false },
+  }
   for (let i = 0; i < 4; i++) {
     achievements.kingLover[i] = 0
     achievements.toshi[i] = 0
@@ -118,34 +182,50 @@ function startGame() {
 
   document.getElementById('setupPanel').style.display = 'none'
   document.getElementById('modeSelect').style.display = 'none'
-  document.getElementById('gameArea').style.display = 'block'
+  document.getElementById('gameArea').style.display = 'flex'
+  document.body.classList.add('no-scroll')
 
   renderScoreboard()
   renderGameSelector()
 }
 
+// Toggle Scoreboard Popup
+function toggleScoreboard() {
+  const overlay = document.getElementById('scoreboardOverlay')
+  const isVisible = overlay.style.display === 'flex'
+  overlay.style.display = isVisible ? 'none' : 'flex'
+  if (!isVisible) renderScoreboard()
+}
+
+// Toggle History Popup
+function toggleHistory() {
+  const overlay = document.getElementById('historyOverlay')
+  const isVisible = overlay.style.display === 'flex'
+  overlay.style.display = isVisible ? 'none' : 'flex'
+  if (!isVisible) renderHistory()
+}
+
 // Helper Functions
 function getTeamIndex(pi) {
-  return pi < 2 ? 0 : 1
+  // New mapping: 0,2 = Team 1; 1,3 = Team 2
+  return pi % 2 === 0 ? 0 : 1
 }
 
 function getTeamScore(ti) {
-  const ps = ti === 0 ? [0, 1] : [2, 3]
+  // Team 0: players 0,2; Team 1: players 1,3
+  const ps = ti === 0 ? [0, 2] : [1, 3]
   return scores[ps[0]] + scores[ps[1]]
 }
 
 function getOwnerLabel(pi) {
   if (mode === 'individual') return players[pi]
   const ti = getTeamIndex(pi)
-  const idx = pi === 0 || pi === 2 ? 1 : 2
-  return `${teamNames[ti]} - Player ${idx}`
+  return `${teamNames[ti]} - ${players[pi]}`
 }
 
 function getPlayerLabel(pi) {
   if (mode === 'individual') return players[pi]
-  const ti = getTeamIndex(pi)
-  const idx = pi === 0 || pi === 2 ? 1 : 2
-  return `${teamNames[ti]} - P${idx}`
+  return players[pi]
 }
 
 // Render Scoreboard
@@ -183,7 +263,7 @@ function renderScoreboard() {
       .map((ti) => {
         const s = getTeamScore(ti)
         const cls = s > 0 ? 'positive' : s < 0 ? 'negative' : ''
-        const ps = ti === 0 ? [0, 1] : [2, 3]
+        const ps = ti === 0 ? [0, 2] : [1, 3]
         let kingdomHtml = ''
         ps.forEach((pi, idx) => {
           const kd = Object.entries(kingdoms[pi])
@@ -192,7 +272,7 @@ function renderScoreboard() {
                 `<div class="kingdom-item ${v ? 'done' : 'pending'}">${k}</div>`
             )
             .join('')
-          kingdomHtml += `<h5>Player ${
+          kingdomHtml += `<h5>لاعب ${
             idx + 1
           }</h5><div class="kingdom-tracker">${kd}</div>`
         })
@@ -212,9 +292,7 @@ function renderGameSelector() {
   document.getElementById('currentKingdom').style.display = 'none'
 
   // Check if all kingdoms are complete
-  const allDone = Object.values(kingdoms).every((k) =>
-    Object.values(k).every((v) => v)
-  )
+  const allDone = Object.values(kingdoms).every((k) => games.every((g) => k[g]))
   if (allDone) {
     checkGameEnd()
     return
@@ -224,7 +302,7 @@ function renderGameSelector() {
   let searchCount = 0
   while (searchCount < 4) {
     const avail = Object.entries(kingdoms[currentPlayerIndex])
-      .filter(([k, v]) => !v)
+      .filter(([k, v]) => !v && games.includes(k))
       .map(([k]) => k)
 
     if (avail.length > 0) {
@@ -248,7 +326,7 @@ function selectOwner(pi) {
   kingdomHistory = history.filter((record) => record.ownerIndex === pi)
 
   const avail = Object.entries(kingdoms[pi])
-    .filter(([k, v]) => !v)
+    .filter(([k, v]) => !v && games.includes(k))
     .map(([k]) => k)
   const c = document.getElementById('currentKingdom')
   const gameSelector = document.getElementById('gameSelector')
@@ -257,15 +335,15 @@ function selectOwner(pi) {
   gameSelector.style.display = 'none'
   c.style.display = 'block'
   c.innerHTML = `
-    <h3>👑 ${getOwnerLabel(pi)}'s Kingdom</h3>
+    <h3>👑 مملكة ${getOwnerLabel(pi)}</h3>
     <div style="text-align:center;margin-bottom:15px;font-size:clamp(14px,4vw,16px);color:#aaa;">
-      Select one of the ${avail.length} remaining games:
+      اختار وحدة من الـ ${avail.length} لعبات المتبقية:
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:15px">
       ${avail
         .map(
           (g) =>
-            `<button class="game-btn" onclick="selectGame('${g}')">${g}</button>`
+            `<button class="game-btn" onclick="event.preventDefault(); selectGame('${g}')">${g}</button>`
         )
         .join('')}
     </div>
@@ -301,15 +379,15 @@ function selectGame(g) {
 function renderGameForm(g) {
   const f = document.getElementById('gameForm')
 
-  if (g === 'Trix') {
+  if (g === 'تركس') {
     renderTrixForm(f)
-  } else if (g === 'Latosh') {
+  } else if (g === 'لطش') {
     renderLatoshForm(f)
-  } else if (g === 'Dinari') {
+  } else if (g === 'ديناري') {
     renderDinariForm(f)
-  } else if (g === 'Banat') {
+  } else if (g === 'بنات') {
     renderGirlsForm(f)
-  } else if (g === 'Khteyar') {
+  } else if (g === 'ختيار') {
     renderKhteyarForm(f)
   }
 }
@@ -318,58 +396,58 @@ function renderGameForm(g) {
 function renderTrixForm(f) {
   f.innerHTML = `
     <div class="game-form">
-      <div class="instruction-text">Click players to assign finishing positions</div>
+      <div class="instruction-text">اضغط على اللاعبين لترتيب مراكزهم</div>
       <div class="trix-positions">
         <div class="position-slot ${
           trixPositions[0] !== null ? 'filled' : ''
         }" id="pos0">
-          <div class="position-label">🥇 1st Place</div>
-          <div class="position-points">+200 points</div>
+          <div class="position-label">🥇 الأول</div>
+          <div class="position-points">+٢٠٠ نقطة</div>
           ${
             trixPositions[0] !== null
-              ? `<div class="position-player">${
-                  playerIcons[trixPositions[0]]
-                } ${getPlayerLabel(trixPositions[0])}</div>`
-              : '<div class="position-player">Click a player</div>'
+              ? `<div class="position-player">${getPlayerIconInline(
+                  trixPositions[0]
+                )} ${getPlayerLabel(trixPositions[0])}</div>`
+              : '<div class="position-player">اضغط على لاعب</div>'
           }
         </div>
         <div class="position-slot ${
           trixPositions[1] !== null ? 'filled' : ''
         }" id="pos1">
-          <div class="position-label">🥈 2nd Place</div>
-          <div class="position-points">+150 points</div>
+          <div class="position-label">🥈 التاني</div>
+          <div class="position-points">+١٥٠ نقطة</div>
           ${
             trixPositions[1] !== null
-              ? `<div class="position-player">${
-                  playerIcons[trixPositions[1]]
-                } ${getPlayerLabel(trixPositions[1])}</div>`
-              : '<div class="position-player">Click a player</div>'
+              ? `<div class="position-player">${getPlayerIconInline(
+                  trixPositions[1]
+                )} ${getPlayerLabel(trixPositions[1])}</div>`
+              : '<div class="position-player">اضغط على لاعب</div>'
           }
         </div>
         <div class="position-slot ${
           trixPositions[2] !== null ? 'filled' : ''
         }" id="pos2">
-          <div class="position-label">🥉 3rd Place</div>
-          <div class="position-points">+100 points</div>
+          <div class="position-label">🥉 التالت</div>
+          <div class="position-points">+١٠٠ نقطة</div>
           ${
             trixPositions[2] !== null
-              ? `<div class="position-player">${
-                  playerIcons[trixPositions[2]]
-                } ${getPlayerLabel(trixPositions[2])}</div>`
-              : '<div class="position-player">Click a player</div>'
+              ? `<div class="position-player">${getPlayerIconInline(
+                  trixPositions[2]
+                )} ${getPlayerLabel(trixPositions[2])}</div>`
+              : '<div class="position-player">اضغط على لاعب</div>'
           }
         </div>
         <div class="position-slot ${
           trixPositions[3] !== null ? 'filled' : ''
         }" id="pos3">
-          <div class="position-label">4th Place</div>
-          <div class="position-points">+50 points</div>
+          <div class="position-label">الرابع</div>
+          <div class="position-points">+٥٠ نقطة</div>
           ${
             trixPositions[3] !== null
-              ? `<div class="position-player">${
-                  playerIcons[trixPositions[3]]
-                } ${getPlayerLabel(trixPositions[3])}</div>`
-              : '<div class="position-player">Click a player</div>'
+              ? `<div class="position-player">${getPlayerIconInline(
+                  trixPositions[3]
+                )} ${getPlayerLabel(trixPositions[3])}</div>`
+              : '<div class="position-player">اضغط على لاعب</div>'
           }
         </div>
       </div>
@@ -380,7 +458,7 @@ function renderTrixForm(f) {
           <div class="player-seat ${
             trixPositions.includes(pi) ? 'disabled' : ''
           }" onclick="selectTrixPlayer(${pi})">
-            <div class="player-icon">${playerIcons[pi]}</div>
+            ${getPlayerIcon(pi)}
             <h3>${getPlayerLabel(pi)}</h3>
           </div>
         `
@@ -389,10 +467,10 @@ function renderTrixForm(f) {
       </div>
       <div id="trixError" class="validation-error"></div>
       <div class="action-row">
-        <button class="action-btn cancel" onclick="resetCurrentGame()">Reset</button>
+        <button class="action-btn cancel" onclick="resetCurrentGame()">إلغاء</button>
         <button class="submit-game" onclick="submitTrix()" ${
           trixPositions.includes(null) ? 'disabled' : ''
-        } style="margin:0;max-width:none;">Submit Trix</button>
+        } style="margin:0;max-width:none;">تسجيل تركس</button>
       </div>
     </div>
   `
@@ -405,7 +483,7 @@ function selectTrixPlayer(pi) {
   const nextPos = trixPositions.indexOf(null)
   if (nextPos !== -1) {
     trixPositions[nextPos] = pi
-    renderGameForm('Trix')
+    renderGameForm('تركس')
   }
 }
 
@@ -415,14 +493,14 @@ function renderLatoshForm(f) {
 
   f.innerHTML = `
     <div class="game-form">
-      <div class="instruction-text">Distribute 13 Latosh cards (-15 points each)</div>
-      <div class="remaining-cards">Remaining: ${remaining} cards</div>
+      <div class="instruction-text">وزِّع ١٣ ورقة لطش (-١٥ نقطة لكل ورقة)</div>
+      <div class="remaining-cards">متبقي: ${remaining} ورقة</div>
       <div class="player-table">
         ${[0, 1, 2, 3]
           .map(
             (pi) => `
           <div class="player-seat">
-            <div class="player-icon">${playerIcons[pi]}</div>
+            ${getPlayerIcon(pi)}
             <h3>${getPlayerLabel(pi)}</h3>
             <div class="counter-controls">
               <button class="counter-btn" onclick="adjustCard(${pi}, -1, 'latosh')" ${
@@ -435,7 +513,7 @@ function renderLatoshForm(f) {
             </div>
             <div style="font-size:14px;color:#ff6b6b;margin-top:10px">${
               cardCounts[pi] * -15
-            } pts</div>
+            } نقطة</div>
           </div>
         `
           )
@@ -443,10 +521,10 @@ function renderLatoshForm(f) {
       </div>
       <div id="latoshError" class="validation-error"></div>
       <div class="action-row">
-        <button class="action-btn cancel" onclick="resetCurrentGame()">Reset</button>
+        <button class="action-btn cancel" onclick="resetCurrentGame()">إلغاء</button>
         <button class="submit-game" onclick="submitLatosh()" ${
           remaining !== 0 ? 'disabled' : ''
-        } style="margin:0;max-width:none;">Submit Latosh</button>
+        } style="margin:0;max-width:none;">تسجيل لطش</button>
       </div>
     </div>
   `
@@ -458,14 +536,14 @@ function renderDinariForm(f) {
 
   f.innerHTML = `
     <div class="game-form">
-      <div class="instruction-text">Distribute 13 Diamond cards (-10 points each)</div>
-      <div class="remaining-cards">Remaining: ${remaining} ♦ cards</div>
+      <div class="instruction-text">وزِّع ١٣ ورقة ديناري (-١٠ نقاط لكل ورقة)</div>
+      <div class="remaining-cards">متبقي: ${remaining} ♦ ورقة</div>
       <div class="player-table">
         ${[0, 1, 2, 3]
           .map(
             (pi) => `
           <div class="player-seat">
-            <div class="player-icon">${playerIcons[pi]}</div>
+            ${getPlayerIcon(pi)}
             <h3>${getPlayerLabel(pi)}</h3>
             <div class="counter-controls">
               <button class="counter-btn" onclick="adjustCard(${pi}, -1, 'dinari')" ${
@@ -478,7 +556,7 @@ function renderDinariForm(f) {
             </div>
             <div style="font-size:14px;color:#ff6b6b;margin-top:10px">${
               cardCounts[pi] * -10
-            } pts</div>
+            } نقطة</div>
           </div>
         `
           )
@@ -486,10 +564,10 @@ function renderDinariForm(f) {
       </div>
       <div id="dinariError" class="validation-error"></div>
       <div class="action-row">
-        <button class="action-btn cancel" onclick="resetCurrentGame()">Reset</button>
+        <button class="action-btn cancel" onclick="resetCurrentGame()">إلغاء</button>
         <button class="submit-game" onclick="submitDinari()" ${
           remaining !== 0 ? 'disabled' : ''
-        } style="margin:0;max-width:none;">Submit Dinari</button>
+        } style="margin:0;max-width:none;">تسجيل ديناري</button>
       </div>
     </div>
   `
@@ -519,7 +597,7 @@ function renderGirlsForm(f) {
   if (gameStep === 'select') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Click a queen card, then select who took it</div>
+        <div class="instruction-text">اضغط على بنت وبعدين اختار مين أخدا</div>
         <div class="queen-cards">
           ${suits
             .map(
@@ -538,28 +616,28 @@ function renderGirlsForm(f) {
                   queensState[qi].taker !== null
                     ? `
                   <div style="text-align:center;">
-                    <div style="font-size:40px;">${
-                      playerIcons[queensState[qi].taker]
-                    }</div>
+                    <div style="font-size:40px;">${getPlayerIcon(
+                      queensState[qi].taker
+                    )}</div>
                     <div style="font-weight:600;margin-top:10px;">${getPlayerLabel(
                       queensState[qi].taker
                     )}</div>
                     <div style="color:#e74c3c;font-weight:bold;margin-top:5px;">${
-                      queensState[qi].doubled ? '-50' : '-25'
-                    } pts</div>
+                      queensState[qi].doubled ? '-٥٠' : '-٢٥'
+                    } نقطة</div>
                     ${
                       queensState[qi].doubled &&
                       queensState[qi].doubler !== null
                         ? `
-                      <div style="font-size:12px;margin-top:5px;color:#666;">Doubled by ${
-                        playerIcons[queensState[qi].doubler]
-                      } ${getPlayerLabel(queensState[qi].doubler)}</div>
+                      <div style="font-size:12px;margin-top:5px;color:#666;">ضعّفو ${getPlayerIconInline(
+                        queensState[qi].doubler
+                      )} ${getPlayerLabel(queensState[qi].doubler)}</div>
                     `
                         : ''
                     }
                   </div>
                 `
-                    : '<div class="queen-status">Not taken</div>'
+                    : '<div class="queen-status">ما انأخدت</div>'
                 }
               </div>
             </div>
@@ -569,27 +647,27 @@ function renderGirlsForm(f) {
         </div>
         <div id="girlsError" class="validation-error"></div>
         <div class="action-row">
-          <button class="action-btn cancel" onclick="resetCurrentGame()">Reset</button>
+          <button class="action-btn cancel" onclick="resetCurrentGame()">إلغاء</button>
           <button class="submit-game" onclick="submitGirls()" ${
             Object.values(queensState).some((q) => q.taker === null)
               ? 'disabled'
               : ''
-          } style="margin:0;max-width:none;">Submit Banat</button>
+          } style="margin:0;max-width:none;">تسجيل بنات</button>
         </div>
       </div>
     `
   } else if (gameStep === 'assignTaker') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Who took the Q${
+        <div class="instruction-text">مين أخد Q${
           suits[currentQueenIndex]
-        }? Click a player</div>
+        }؟ اضغط على لاعب</div>
         <div class="player-table">
           ${[0, 1, 2, 3]
             .map(
               (pi) => `
             <div class="player-seat" onclick="assignQueenTaker(${pi})">
-              <div class="player-icon">${playerIcons[pi]}</div>
+              ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
           `
@@ -597,32 +675,32 @@ function renderGirlsForm(f) {
             .join('')}
         </div>
         <div class="action-row">
-          <button class="action-btn cancel" onclick="cancelQueenSelection()">Cancel</button>
+          <button class="action-btn cancel" onclick="cancelQueenSelection()">إلغاء</button>
         </div>
       </div>
     `
   } else if (gameStep === 'askDouble') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Was Q${suits[currentQueenIndex]} doubled?</div>
+        <div class="instruction-text">هل Q${suits[currentQueenIndex]} مدبلة؟</div>
         <div class="action-row">
-          <button class="action-btn double" onclick="setQueenDoubled(true)">Yes, Doubled</button>
-          <button class="action-btn cancel" onclick="setQueenDoubled(false)">No</button>
+          <button class="action-btn double" onclick="setQueenDoubled(true)">أي، مدبلة</button>
+          <button class="action-btn cancel" onclick="setQueenDoubled(false)">لأ</button>
         </div>
       </div>
     `
   } else if (gameStep === 'assignDoubler') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Who doubled the Q${
+        <div class="instruction-text">مين ضعّف Q${
           suits[currentQueenIndex]
-        }? Click a player</div>
+        }؟ اضغط على لاعب</div>
         <div class="player-table">
           ${[0, 1, 2, 3]
             .map(
               (pi) => `
             <div class="player-seat" onclick="assignQueenDoubler(${pi})">
-              <div class="player-icon">${playerIcons[pi]}</div>
+              ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
           `
@@ -634,28 +712,28 @@ function renderGirlsForm(f) {
   } else if (gameStep === 'askForced') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Was ${getPlayerLabel(
+        <div class="instruction-text">هل ${getPlayerLabel(
           queensState[currentQueenIndex].taker
-        )} forced to take this queen?</div>
+        )} انجبر ياخد هالبنت؟</div>
         <div class="action-row">
-          <button class="action-btn double" onclick="setQueenForced(true)">Yes, Forced</button>
-          <button class="action-btn cancel" onclick="setQueenForced(false)">No</button>
+          <button class="action-btn double" onclick="setQueenForced(true)">أي، مجبور</button>
+          <button class="action-btn cancel" onclick="setQueenForced(false)">لأ</button>
         </div>
       </div>
     `
   } else if (gameStep === 'assignForcer') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Who forced ${getPlayerLabel(
+        <div class="instruction-text">مين جبر ${getPlayerLabel(
           queensState[currentQueenIndex].taker
-        )} to take the Q${suits[currentQueenIndex]}?</div>
+        )} ياخد Q${suits[currentQueenIndex]}؟</div>
         <div class="player-table">
           ${[0, 1, 2, 3]
             .filter((pi) => pi !== queensState[currentQueenIndex].taker)
             .map(
               (pi) => `
             <div class="player-seat" onclick="assignQueenForcer(${pi})">
-              <div class="player-icon">${playerIcons[pi]}</div>
+              ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
           `
@@ -744,7 +822,7 @@ function renderKhteyarForm(f) {
   if (gameStep === 'select') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Who took the K♠? Click a player</div>
+        <div class="instruction-text">مين أخد K♥؟ اضغط على لاعب</div>
         <div class="player-table">
           ${[0, 1, 2, 3]
             .map(
@@ -752,7 +830,7 @@ function renderKhteyarForm(f) {
             <div class="player-seat ${
               khteyarState.taker === pi ? 'selected' : ''
             }" onclick="selectKhteyarTaker(${pi})">
-              <div class="player-icon">${playerIcons[pi]}</div>
+              ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
           `
@@ -763,7 +841,7 @@ function renderKhteyarForm(f) {
           khteyarState.taker !== null
             ? `
           <div class="action-row">
-            <button class="action-btn double" onclick="askKhteyarDouble()">Next</button>
+            <button class="action-btn double" onclick="askKhteyarDouble()">التالي</button>
           </div>
         `
             : ''
@@ -773,23 +851,23 @@ function renderKhteyarForm(f) {
   } else if (gameStep === 'askDouble') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Was K♠ doubled?</div>
+        <div class="instruction-text">الختيار مدبل؟</div>
         <div class="action-row">
-          <button class="action-btn double" onclick="setKhteyarDoubled(true)">Yes, Doubled</button>
-          <button class="action-btn cancel" onclick="setKhteyarDoubled(false)">No</button>
+          <button class="action-btn double" onclick="setKhteyarDoubled(true)">أي، مدبل</button>
+          <button class="action-btn cancel" onclick="setKhteyarDoubled(false)">لأ</button>
         </div>
       </div>
     `
   } else if (gameStep === 'assignDoubler') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Who doubled the K♠? Click a player</div>
+        <div class="instruction-text">مين دبل الختيار</div>
         <div class="player-table">
           ${[0, 1, 2, 3]
             .map(
               (pi) => `
             <div class="player-seat" onclick="assignKhteyarDoubler(${pi})">
-              <div class="player-icon">${playerIcons[pi]}</div>
+              ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
           `
@@ -801,28 +879,28 @@ function renderKhteyarForm(f) {
   } else if (gameStep === 'askForced') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Was ${getPlayerLabel(
+        <div class="instruction-text">هل ${getPlayerLabel(
           khteyarState.taker
-        )} forced to take the K♠?</div>
+        )} انجبر ياخد الختيار؟</div>
         <div class="action-row">
-          <button class="action-btn double" onclick="setKhteyarForced(true)">Yes, Forced</button>
-          <button class="action-btn cancel" onclick="setKhteyarForced(false)">No</button>
+          <button class="action-btn double" onclick="setKhteyarForced(true)">أي، مجبور</button>
+          <button class="action-btn cancel" onclick="setKhteyarForced(false)">لأ</button>
         </div>
       </div>
     `
   } else if (gameStep === 'assignForcer') {
     f.innerHTML = `
       <div class="game-form">
-        <div class="instruction-text">Who forced ${getPlayerLabel(
+        <div class="instruction-text">مين جبر ${getPlayerLabel(
           khteyarState.taker
-        )} to take the K♠?</div>
+        )} ياخد الختيار؟</div>
         <div class="player-table">
           ${[0, 1, 2, 3]
             .filter((pi) => pi !== khteyarState.taker)
             .map(
               (pi) => `
             <div class="player-seat" onclick="assignKhteyarForcer(${pi})">
-              <div class="player-icon">${playerIcons[pi]}</div>
+              ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
           `
@@ -886,8 +964,7 @@ function assignKhteyarForcer(pi) {
 // Submit Functions
 function submitTrix() {
   if (trixPositions.includes(null)) {
-    document.getElementById('trixError').textContent =
-      'Please assign all positions!'
+    document.getElementById('trixError').textContent = 'لازم تحدد كل المراكز!'
     return
   }
 
@@ -899,7 +976,7 @@ function submitTrix() {
     changes.push(`${getPlayerLabel(pi)}: +${pts[pos]}`)
     scoreChanges.push({ player: pi, points: pts[pos] })
   })
-  finishGame('Trix', changes.join(', '), scoreChanges)
+  finishGame('تركس', changes.join(', '), scoreChanges)
 }
 
 function submitLatosh() {
@@ -907,7 +984,7 @@ function submitLatosh() {
   if (total !== 13) {
     document.getElementById(
       'latoshError'
-    ).textContent = `Total Latosh must be 13! Current: ${total}`
+    ).textContent = `لازم يكون المجموع ١٣ لطش! هلق عندك: ${total}`
     return
   }
   const changes = []
@@ -920,7 +997,7 @@ function submitLatosh() {
       scoreChanges.push({ player: i, points: pts })
     }
   })
-  finishGame('Latosh', changes.join(', '), scoreChanges)
+  finishGame('لطش', changes.join(', '), scoreChanges)
 }
 
 function submitDinari() {
@@ -928,7 +1005,7 @@ function submitDinari() {
   if (total !== 13) {
     document.getElementById(
       'dinariError'
-    ).textContent = `Total diamonds must be 13! Current: ${total}`
+    ).textContent = `لازم يكون المجموع ١٣ ديناري! هلق عندك: ${total}`
     return
   }
   const changes = []
@@ -941,7 +1018,7 @@ function submitDinari() {
       scoreChanges.push({ player: i, points: pts })
     }
   })
-  finishGame('Dinari', changes.join(', '), scoreChanges)
+  finishGame('ديناري', changes.join(', '), scoreChanges)
 }
 
 function submitGirls() {
@@ -958,9 +1035,7 @@ function submitGirls() {
   if (unassignedQueens.length > 0) {
     document.getElementById(
       'girlsError'
-    ).textContent = `Please assign all queens! Missing: ${unassignedQueens.join(
-      ', '
-    )}`
+    ).textContent = `لازم تحدد كل البنات! ناقص: ${unassignedQueens.join(', ')}`
     return
   }
 
@@ -984,12 +1059,12 @@ function submitGirls() {
             changes.push(
               `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
                 queen.forcer
-              )}: +25 (Q${suits[qi]} self-doubled but forced)`
+              )}: +25 (Q${suits[qi]} ضعّف حالو بس انجبر)`
             )
           } else {
             // Voluntary self-double - no bonus
             changes.push(
-              `${getPlayerLabel(queen.taker)}: -50 (self-doubled Q${suits[qi]})`
+              `${getPlayerLabel(queen.taker)}: -50 (ضعّف Q${suits[qi]} حالو)`
             )
           }
         } else {
@@ -999,7 +1074,7 @@ function submitGirls() {
           changes.push(
             `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
               queen.doubler
-            )}: +25 (Q${suits[qi]} doubled)`
+            )}: +25 (Q${suits[qi]} مدبلة)`
           )
         }
       } else {
@@ -1012,20 +1087,29 @@ function submitGirls() {
         if (takerTeam === doublerTeam) {
           // Same team (partner doubled or self-doubled)
           if (queen.doubler === queen.taker && queen.forcer !== null) {
-            // Self-doubled but forced by opponent - opponent gets bonus
-            scores[queen.forcer] += 25
-            scoreChanges.push({ player: queen.forcer, points: 25 })
-            changes.push(
-              `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
-                queen.forcer
-              )}: +25 (Q${suits[qi]} self-doubled but forced)`
-            )
+            // Self-doubled and forced - check if forcer is opponent
+            const forcerTeam = getTeamIndex(queen.forcer)
+            if (forcerTeam !== takerTeam) {
+              // Forced by opponent - opponent gets bonus
+              scores[queen.forcer] += 25
+              scoreChanges.push({ player: queen.forcer, points: 25 })
+              changes.push(
+                `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
+                  queen.forcer
+                )}: +25 (Q${suits[qi]} ضعّف حالو بس انجبر)`
+              )
+            } else {
+              // Forced by teammate - no bonus
+              changes.push(
+                `${getPlayerLabel(queen.taker)}: -50 (Q${
+                  suits[qi]
+                } ضعّف حالو، جبرو شريكو)`
+              )
+            }
           } else {
             // Partner doubled or voluntary self-double
             changes.push(
-              `${getPlayerLabel(queen.taker)}: -50 (partner doubled Q${
-                suits[qi]
-              })`
+              `${getPlayerLabel(queen.taker)}: -50 (شريكو ضعّف Q${suits[qi]})`
             )
           }
         } else {
@@ -1035,7 +1119,7 @@ function submitGirls() {
           changes.push(
             `${getPlayerLabel(queen.taker)}: -50, ${getPlayerLabel(
               queen.doubler
-            )}: +25 (Q${suits[qi]} doubled by opponent)`
+            )}: +25 (Q${suits[qi]} ضعّفو الخصم)`
           )
         }
       }
@@ -1046,8 +1130,8 @@ function submitGirls() {
     }
   }
   finishGame(
-    'Banat',
-    changes.length ? changes.join(', ') : 'No queens taken',
+    'بنات',
+    changes.length ? changes.join(', ') : 'ما في بنات انأخدو',
     scoreChanges
   )
 }
@@ -1074,11 +1158,13 @@ function submitKhteyar() {
           changes.push(
             `${getPlayerLabel(taker)}: -150, ${getPlayerLabel(
               forcer
-            )}: +75 (K♠ self-doubled but forced)`
+            )}: +75 (دبل الختيار وبلعو)`
           )
+          showThunderEffect('self')
         } else {
           // Voluntary self-double - no bonus
-          changes.push(`${getPlayerLabel(taker)}: -150 (self-doubled K♠)`)
+          changes.push(`${getPlayerLabel(taker)}: -150 (دبل الختيار وبلعو)`)
+          showThunderEffect('self')
         }
       } else {
         // Different players - normal bonus
@@ -1089,8 +1175,9 @@ function submitKhteyar() {
         changes.push(
           `${getPlayerLabel(taker)}: -150, ${getPlayerLabel(
             doubler
-          )}: +75 (K♠ doubled)`
+          )}: +75 (طعما الختيار مدبل)`
         )
+        showThunderEffect('opponent')
       }
     } else {
       const takerTeam = getTeamIndex(taker)
@@ -1101,17 +1188,29 @@ function submitKhteyar() {
         scoreChanges.push({ player: taker, points: -150 })
 
         if (doubler === taker && forcer !== null) {
-          // Self-doubled but forced by opponent - opponent gets bonus
-          scores[forcer] += 75
-          scoreChanges.push({ player: forcer, points: 75 })
-          changes.push(
-            `${getPlayerLabel(taker)}: -150, ${getPlayerLabel(
-              forcer
-            )}: +75 (K♠ self-doubled but forced)`
-          )
+          // Self-doubled and forced - check if forcer is opponent
+          const forcerTeam = getTeamIndex(forcer)
+          if (forcerTeam !== takerTeam) {
+            // Forced by opponent - opponent gets bonus
+            scores[forcer] += 75
+            scoreChanges.push({ player: forcer, points: 75 })
+            changes.push(
+              `${getPlayerLabel(taker)}: -150, ${getPlayerLabel(
+                forcer
+              )}: +75 ( دبل الختيار وبلعو)`
+            )
+            showThunderEffect('self')
+          } else {
+            // Forced by teammate - no bonus
+            changes.push(
+              `${getPlayerLabel(taker)}: -150 (دبل الختيار وبلعو، جبرو شريكو)`
+            )
+            showThunderEffect('self')
+          }
         } else {
           // Partner doubled or voluntary self-double
-          changes.push(`${getPlayerLabel(taker)}: -150 (partner doubled K♠)`)
+          changes.push(`${getPlayerLabel(taker)}: -150 (شريكو دبل الختيار)`)
+          showThunderEffect('teammate')
         }
       } else {
         // Different teams - opponent doubled
@@ -1122,16 +1221,17 @@ function submitKhteyar() {
         changes.push(
           `${getPlayerLabel(taker)}: -150, ${getPlayerLabel(
             doubler
-          )}: +75 (K♠ doubled)`
+          )}: +75 (ختيار مدبل)`
         )
+        showThunderEffect('opponent')
       }
     }
   } else {
     scores[taker] += -75
     scoreChanges.push({ player: taker, points: -75 })
-    changes.push(`${getPlayerLabel(taker)}: -75 (K♠)`)
+    changes.push(`${getPlayerLabel(taker)}: -75 (ختيار)`)
   }
-  finishGame('Khteyar', changes.join(', '), scoreChanges)
+  finishGame('ختيار', changes.join(', '), scoreChanges)
 }
 
 // Finish Game
@@ -1147,7 +1247,7 @@ function finishGame(game, details, scoreChanges) {
   // Convert scoreChanges array to indexed format for easier rendering
   const scoreChangesIndexed = [0, 0, 0, 0]
   scoreChanges.forEach((change) => {
-    scoreChangesIndexed[change.player] = change.points
+    scoreChangesIndexed[change.player] += change.points
   })
 
   const record = {
@@ -1196,9 +1296,9 @@ function finishGame(game, details, scoreChanges) {
   gameInProgress = false
 
   // Check if this player's kingdom is complete
-  const kingdomComplete = Object.values(kingdoms[currentOwner]).every((v) => v)
+  const allGamesComplete = games.every((g) => kingdoms[currentOwner][g])
 
-  if (kingdomComplete) {
+  if (allGamesComplete) {
     showKingdomOverview()
   } else {
     // More games to play, refresh the game selector
@@ -1221,25 +1321,42 @@ function renderHistory() {
     kingdomGroups[i] = history.filter((h) => h.ownerIndex === i)
   }
 
+  // Get players with kingdoms in descending order (most recent activity first)
+  const playersWithKingdoms = []
+  for (let i = 0; i < 4; i++) {
+    if (kingdomGroups[i].length > 0) {
+      playersWithKingdoms.push(i)
+    }
+  }
+  // Reverse to show most recently active kingdoms first
+  playersWithKingdoms.reverse()
+
   // Render each player's kingdom
   let html = ''
-  for (let i = 0; i < 4; i++) {
+  for (const i of playersWithKingdoms) {
     const games = kingdomGroups[i]
-    if (games.length === 0) continue
+
+    // Check if this kingdom is complete (all 5 games done)
+    const isKingdomComplete =
+      games.length === 5 && Object.values(kingdoms[i]).every((v) => v)
 
     html += `
       <div class="kingdom-history-section">
         <div class="kingdom-history-header">
-          <span class="kingdom-owner-icon">${playerIcons[i]}</span>
+          ${getPlayerIcon(i, true)}
           <span class="kingdom-owner-name">${getOwnerLabel(i)}'s Kingdom</span>
         </div>
         <div class="kingdom-games-table">
     `
 
-    games.forEach((h, idx) => {
-      const realIdx = history.indexOf(h)
-      html += renderGameTable(h, realIdx)
-    })
+    // Reverse games array to show newest first
+    games
+      .slice()
+      .reverse()
+      .forEach((h, idx) => {
+        const realIdx = history.indexOf(h)
+        html += renderGameTable(h, realIdx, isKingdomComplete)
+      })
 
     html += `
         </div>
@@ -1251,7 +1368,7 @@ function renderHistory() {
 }
 
 // Render individual game table
-function renderGameTable(h, realIdx) {
+function renderGameTable(h, realIdx, isKingdomComplete = false) {
   let tableHtml = `
     <div class="game-table-container">
       <div class="game-table-header">
@@ -1297,7 +1414,7 @@ function renderGameTable(h, realIdx) {
     tableHtml += `
       <tr>
         <td class="player-cell">
-          <span class="player-icon-small">${playerIcons[pi]}</span>
+          ${getPlayerIcon(pi, true)}
           ${getPlayerLabel(pi)}
         </td>
         <td class="score-cell ${scoreClass}">${scoreDisplay}</td>
@@ -1306,50 +1423,20 @@ function renderGameTable(h, realIdx) {
     `
   }
 
-  // Add details row for non-Banat games
-  if (h.game !== 'Banat') {
-    tableHtml += `
-      <tr class="details-row">
-        <td colspan="2" class="game-details">
-    `
-
-    for (let pi = 0; pi < 4; pi++) {
-      let details = ''
-      if (h.game === 'Trix') {
-        const position = h.positions?.indexOf(pi)
-        if (position === 0) details = `${playerIcons[pi]} 🥇 1st`
-        else if (position === 1) details = `${playerIcons[pi]} 🥈 2nd`
-        else if (position === 2) details = `${playerIcons[pi]} 🥉 3rd`
-        else if (position === 3) details = `${playerIcons[pi]} 4th`
-      } else if (h.game === 'Latosh' || h.game === 'Dinari') {
-        const count = h.cardCounts?.[pi] || 0
-        if (count > 0) details = `${playerIcons[pi]} ${count} cards`
-      } else if (h.game === 'Khteyar') {
-        if (h.khteyarTaker === pi) {
-          details = h.khteyarDoubled
-            ? `${playerIcons[pi]} 👑 (Doubled)`
-            : `${playerIcons[pi]} 👑`
-        }
-      }
-      if (details) {
-        tableHtml += `<span class="detail-item">${details}</span>`
-      }
-    }
-
-    tableHtml += `
-        </td>
-      </tr>
-    `
-  }
-
   tableHtml += `
         </tbody>
       </table>
+      ${
+        !isKingdomComplete
+          ? `
       <div class="game-table-actions">
         <button class="delete-game-btn" onclick="deleteGame(${realIdx})">
           🗑️ Delete
         </button>
       </div>
+      `
+          : ''
+      }
     </div>
   `
 
@@ -1370,7 +1457,7 @@ function checkGameEnd() {
 
 // Reset Current Game Form
 function resetCurrentGame() {
-  if (!confirm('Reset the current game form?')) return
+  if (!confirm('بدّك تعيد اللعبة؟')) return
 
   // Reset all game-specific state
   cardCounts = [0, 0, 0, 0]
@@ -1399,24 +1486,32 @@ function showKingdomOverview() {
   gameSelector.style.display = 'none'
   c.style.display = 'block'
 
-  // Calculate kingdom score changes
+  // Rebuild kingdom history from current history array in case games were deleted
+  kingdomHistory = history.filter(
+    (record) => record.ownerIndex === currentOwner
+  )
+
+  // Calculate kingdom score changes (just from this kingdom)
   let kingdomScoreChanges = [0, 0, 0, 0]
   kingdomHistory.forEach((record) => {
-    record.scoreChanges.forEach((change) => {
-      kingdomScoreChanges[change.player] += change.points
+    record.scoreChanges.forEach((points, pi) => {
+      kingdomScoreChanges[pi] += points
     })
   })
+
+  // Also keep track of current total scores for display
+  let currentTotalScores = [...scores]
 
   // Create overview display
   let overviewHtml = `
     <div style="background:rgba(76,205,196,0.1);border:2px solid #4ecdc4;border-radius:15px;padding:20px;margin-bottom:20px;">
-      <h3 style="text-align:center;color:#4ecdc4;font-size:clamp(20px,5vw,24px);margin-bottom:15px;">✅ Kingdom Complete!</h3>
-      <h4 style="text-align:center;color:#ffd700;font-size:clamp(16px,4.5vw,20px);margin-bottom:20px;">${getOwnerLabel(
+      <h3 style="text-align:center;color:#4ecdc4;font-size:clamp(20px,5vw,24px);margin-bottom:15px;">✅ المملكة خلصت!</h3>
+      <h4 style="text-align:center;color:#ffd700;font-size:clamp(16px,4.5vw,20px);margin-bottom:20px;">ملخص مملكة ${getOwnerLabel(
         currentOwner
-      )}'s Kingdom Summary</h4>
+      )}</h4>
 
       <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:15px;margin-bottom:15px;">
-        <h5 style="color:#aaa;font-size:clamp(14px,4vw,16px);margin-bottom:10px;text-align:center;">Games Completed:</h5>
+        <h5 style="color:#aaa;font-size:clamp(14px,4vw,16px);margin-bottom:10px;text-align:center;">اللعبات اللي خلصت:</h5>
         <div style="display:grid;gap:8px;">
           ${kingdomHistory
             .map((record, idx) => {
@@ -1429,7 +1524,7 @@ function showKingdomOverview() {
                 <span style="color:#aaa;font-size:clamp(11px,3vw,13px);">${record.timestamp}</span>
               </div>
               <div style="color:#ddd;font-size:clamp(12px,3.5vw,14px);margin-top:5px;">${record.details}</div>
-              <button onclick="deleteGame(${historyIdx})" style="margin-top:8px;padding:6px 12px;background:#ff6b6b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:clamp(11px,3vw,13px);width:100%;">🗑️ Delete</button>
+              <button onclick="deleteGame(${historyIdx})" style="margin-top:8px;padding:6px 12px;background:#ff6b6b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:clamp(11px,3vw,13px);width:100%;">🗑️ احذف</button>
             </div>
           `
             })
@@ -1438,34 +1533,69 @@ function showKingdomOverview() {
       </div>
 
       <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:15px;margin-bottom:20px;">
-        <h5 style="color:#aaa;font-size:clamp(14px,4vw,16px);margin-bottom:10px;text-align:center;">Score Changes:</h5>
+        <h5 style="color:#aaa;font-size:clamp(14px,4vw,16px);margin-bottom:10px;text-align:center;">تغيرات نقاط المملكة:</h5>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
-          ${[0, 1, 2, 3]
-            .map((pi) => {
-              const change = kingdomScoreChanges[pi]
-              const color =
-                change > 0 ? '#4ecdc4' : change < 0 ? '#ff6b6b' : '#aaa'
-              return `
-              <div style="text-align:center;background:#2d3a4f;padding:12px;border-radius:8px;">
-                <div style="font-size:clamp(30px,8vw,40px);margin-bottom:5px;">${
-                  playerIcons[pi]
-                }</div>
-                <div style="font-size:clamp(12px,3.5vw,14px);color:#aaa;margin-bottom:5px;">${getPlayerLabel(
-                  pi
-                )}</div>
-                <div style="font-size:clamp(20px,6vw,28px);font-weight:bold;color:${color};">${
-                change > 0 ? '+' : ''
-              }${change}</div>
-              </div>
-            `
-            })
-            .join('')}
+          ${
+            mode === 'individual'
+              ? [0, 1, 2, 3]
+                  .map((pi) => {
+                    const change = kingdomScoreChanges[pi]
+                    const total = currentTotalScores[pi]
+                    const changeColor =
+                      change > 0 ? '#4ecdc4' : change < 0 ? '#ff6b6b' : '#aaa'
+                    const totalColor =
+                      total > 0 ? '#4ecdc4' : total < 0 ? '#ff6b6b' : '#ffd700'
+                    return `
+                  <div style="text-align:center;background:#2d3a4f;padding:12px;border-radius:8px;">
+                    <div style="width:clamp(50px,12vw,60px);height:clamp(50px,12vw,60px);background-image:url('${
+                      playerImages[pi]
+                    }');background-size:cover;background-position:center;border-radius:50%;border:3px solid rgba(255,215,0,0.5);margin:0 auto 8px;"></div>
+                    <div style="font-size:clamp(12px,3.5vw,14px);color:#aaa;margin-bottom:5px;">${getPlayerLabel(
+                      pi
+                    )}</div>
+                    <div style="font-size:clamp(16px,4.5vw,20px);font-weight:bold;color:${changeColor};">${
+                      change > 0 ? '+' : ''
+                    }${change}</div>
+                    <div style="font-size:clamp(11px,3vw,13px);color:#666;margin-top:4px;">مجموع: <span style="color:${totalColor};font-weight:bold;">${total}</span></div>
+                  </div>
+                `
+                  })
+                  .join('')
+              : [0, 1]
+                  .map((ti) => {
+                    const ps = ti === 0 ? [0, 2] : [1, 3]
+                    const change =
+                      kingdomScoreChanges[ps[0]] + kingdomScoreChanges[ps[1]]
+                    const total =
+                      currentTotalScores[ps[0]] + currentTotalScores[ps[1]]
+                    const changeColor =
+                      change > 0 ? '#4ecdc4' : change < 0 ? '#ff6b6b' : '#aaa'
+                    const totalColor =
+                      total > 0 ? '#4ecdc4' : total < 0 ? '#ff6b6b' : '#ffd700'
+                    return `
+                  <div style="text-align:center;background:#2d3a4f;padding:12px;border-radius:8px;">
+                    <div style="font-size:clamp(16px,4.5vw,20px);color:#ffd700;margin-bottom:8px;font-weight:bold;">${
+                      teamNames[ti]
+                    }</div>
+                    <div style="font-size:clamp(11px,3vw,13px);color:#aaa;margin-bottom:8px;">${getPlayerLabel(
+                      ps[0]
+                    )} & ${getPlayerLabel(ps[1])}</div>
+                    <div style="font-size:clamp(16px,4.5vw,20px);font-weight:bold;color:${changeColor};">${
+                      change > 0 ? '+' : ''
+                    }${change}</div>
+                    <div style="font-size:clamp(11px,3vw,13px);color:#666;margin-top:4px;">مجموع: <span style="color:${totalColor};font-weight:bold;">${total}</span></div>
+                  </div>
+                `
+                  })
+                  .join('')
+          }
         </div>
       </div>
 
-      <div class="action-row" style="margin-top:20px;">
-        <button class="action-btn cancel" onclick="editKingdom()" style="background:#ff9800;">📝 Edit Kingdom</button>
-        <button class="action-btn double" onclick="confirmKingdom()" style="background:#4ecdc4;color:#1a1a2e;flex:2;">✅ Confirm & Continue</button>
+      <div class="action-row" style="margin-top:20px;">'
+
+        <button class="action-btn cancel" onclick="editKingdom()" style="background:#ff9800;">📝 عدِّل المملكة</button>
+        <button class="action-btn double" onclick="confirmKingdom()" style="background:#4ecdc4;color:#1a1a2e;flex:2;">✅ أكِّد و كمِّل</button>
       </div>
     </div>
   `
@@ -1480,6 +1610,9 @@ function editKingdom() {
 
 // Confirm Kingdom and move to next player
 function confirmKingdom() {
+  // Mark this kingdom as confirmed
+  kingdoms[currentOwner].confirmed = true
+
   // Move to next player
   currentPlayerIndex = (currentPlayerIndex + 1) % 4
 
@@ -1492,14 +1625,17 @@ function confirmKingdom() {
 
 // Delete a completed game (reverse scores and mark kingdom incomplete)
 function deleteGame(idx) {
-  if (
-    !confirm(
-      'Delete this game? This will reverse the scores and allow you to play it again.'
-    )
-  )
-    return
-
   const record = history[idx]
+  const ownerIndex = record.ownerIndex
+
+  // Check if kingdom is confirmed
+  if (kingdoms[ownerIndex].confirmed) {
+    alert('ما فيك تحذف لعبات من مملكة مؤكدة!')
+    return
+  }
+
+  if (!confirm('بدّك تحذف هاللعبة؟ رح تترجع النقاط وبتقدر تلعبا من جديد.'))
+    return
   const ownerIdx = record.ownerIndex
 
   // Mark kingdom as incomplete so it can be played again
@@ -1526,6 +1662,52 @@ function deleteGame(idx) {
     kingdomHistory.splice(kingdomIdx, 1)
   }
 
+  // Recalculate all achievements from scratch based on remaining history
+  achievements = {
+    kingLover: {},
+    toshi: {},
+    kingOfGirls: {},
+  }
+  for (let i = 0; i < 4; i++) {
+    achievements.kingLover[i] = 0
+    achievements.toshi[i] = 0
+    achievements.kingOfGirls[i] = 0
+  }
+
+  // Rebuild achievements from remaining history
+  history.forEach((h) => {
+    // King Lover: Count Khteyar games
+    if (h.game === 'Khteyar' && h.khteyarTaker !== undefined) {
+      achievements.kingLover[h.khteyarTaker]++
+    }
+
+    // Toshi: Count 50-point Trix finishes (4th place)
+    if (h.game === 'Trix' && h.positions) {
+      const fourthPlacePlayer = h.positions[3]
+      if (fourthPlacePlayer !== undefined) {
+        achievements.toshi[fourthPlacePlayer]++
+      }
+    }
+
+    // King of the Girls: Count 4-queen games
+    if (h.game === 'Banat' && h.queensDetails) {
+      const queensPerPlayer = [0, 0, 0, 0]
+      // Parse queensDetails to count queens per player
+      h.queensDetails.forEach((details, pi) => {
+        if (details && details !== '-') {
+          // Count queen symbols (♠, ♥, ♦, ♣) in the details string
+          const queenCount = (details.match(/[♠♥♦♣]/g) || []).length
+          queensPerPlayer[pi] = queenCount
+        }
+      })
+      queensPerPlayer.forEach((count, pi) => {
+        if (count === 4) {
+          achievements.kingOfGirls[pi]++
+        }
+      })
+    }
+  })
+
   renderHistory()
   renderScoreboard()
 
@@ -1544,11 +1726,11 @@ function deleteGame(idx) {
 
 // Reset Game
 function resetGame() {
-  if (!confirm('Reset the entire game?')) return
+  if (!confirm('بدّك تعيد ضبط اللعبة كلّا؟')) return
 
   mode = 'individual'
-  players = ['Player 1', 'Player 2', 'Player 3', 'Player 4']
-  teamNames = ['Team 1', 'Team 2']
+  players = ['لاعب ١', 'لاعب ٢', 'لاعب ٣', 'لاعب ٤']
+  teamNames = ['فريق ١', 'فريق ٢']
   scores = [0, 0, 0, 0]
   kingdoms = {}
   history = []
@@ -1568,22 +1750,138 @@ function resetGame() {
   document.getElementById('indBtn').classList.add('active')
   document.getElementById('partBtn').classList.remove('active')
   document.getElementById('historyList').innerHTML = ''
+  document.getElementById('scoreboardOverlay').style.display = 'none'
+  document.getElementById('historyOverlay').style.display = 'none'
+  document.body.classList.remove('no-scroll')
 
   renderSetup()
 }
 
+// Thunder Effect Animation Functions
+function showThunderEffect(scenario) {
+  const overlay = document.createElement('div')
+  overlay.className = 'thunder-overlay'
+
+  const content = document.createElement('div')
+  content.className = 'thunder-content'
+
+  if (scenario === 'opponent') {
+    // Epic thunder storm for taking doubled king from opponent
+    content.innerHTML = `
+      <div class="thunder-icon">⚡👑⚡</div>
+      <div class="thunder-title">فنان!</div>
+      <div class="thunder-message">بلع ختيار الخصم مدبل!</div>
+    `
+    overlay.classList.add('thunder-epic')
+
+    // Create multiple lightning bolts
+    for (let i = 0; i < 8; i++) {
+      const lightning = document.createElement('div')
+      lightning.className = 'lightning-bolt'
+      lightning.style.left = Math.random() * 100 + '%'
+      lightning.style.animationDelay = Math.random() * 2 + 's'
+      overlay.appendChild(lightning)
+    }
+  } else if (scenario === 'teammate') {
+    // Friendly fire thunder
+    content.innerHTML = `
+      <div class="thunder-icon funny-shake">🤦⚡</div>
+      <div class="thunder-title funny-bounce" style="color: #ff69b4;">يا عيب!</div>
+      <div class="thunder-message">ضرب شريكو! شريكك دبل وبلعك!</div>
+    `
+    overlay.classList.add('thunder-funny')
+
+    // Lighter lightning bolts
+    for (let i = 0; i < 4; i++) {
+      const lightning = document.createElement('div')
+      lightning.className = 'lightning-bolt pink-lightning'
+      lightning.style.left = Math.random() * 100 + '%'
+      lightning.style.animationDelay = Math.random() * 1.5 + 's'
+      overlay.appendChild(lightning)
+    }
+  } else if (scenario === 'self') {
+    // Self-damage red thunder
+    content.innerHTML = `
+      <div class="thunder-icon self-shake">🤯⚡</div>
+      <div class="thunder-title self-pulse" style="color: #ff4500;">ضرر ذاتي!</div>
+      <div class="thunder-message">دبلت واكلتو يا فهيم؟</div>
+    `
+    overlay.classList.add('thunder-self')
+
+    // Red lightning bolts converging to center
+    for (let i = 0; i < 6; i++) {
+      const lightning = document.createElement('div')
+      lightning.className = 'lightning-bolt red-lightning'
+      lightning.style.left = Math.random() * 100 + '%'
+      lightning.style.animationDelay = Math.random() * 1 + 's'
+      overlay.appendChild(lightning)
+    }
+  }
+
+  overlay.appendChild(content)
+  document.body.appendChild(overlay)
+
+  // Remove after animation
+  setTimeout(() => {
+    overlay.style.opacity = '0'
+    setTimeout(() => overlay.remove(), 500)
+  }, 3000)
+}
+
 // Achievement Functions
+function showTeamAchievementPopup(type, teamIndex) {
+  const teamName = teamNames[teamIndex]
+  const teamPlayers =
+    teamIndex === 0
+      ? `${players[0]} & ${players[2]}`
+      : `${players[1]} & ${players[3]}`
+
+  const achievements = {
+    queenCollectors: {
+      icon: '👸👸👸👸',
+      title: 'فتحو كازينو!',
+      desc: `${teamName} جمعو ٤ بنات !`,
+    },
+    kingHunters: {
+      icon: '👑💔💔💔',
+      title: '!عاشقين الختيار!',
+      desc: `${teamName} أخدو ٤ ختايرة ! بيعشقو الختايرة! `,
+    },
+    consistentLosers: {
+      icon: '🎯🤦',
+      title: 'دايماً... طشي!',
+      desc: `${teamName} جابو تالت ورابع بتركس مرتين! علالأقل ثابتين!`,
+    },
+  }
+
+  const achievement = achievements[type]
+  const popup = document.createElement('div')
+  popup.className = `achievement-popup team-achievement ${type}`
+  popup.innerHTML = `
+    <div class="achievement-popup-icon">${achievement.icon}</div>
+    <div class="achievement-popup-title">${achievement.title}</div>
+    <div class="achievement-popup-desc">${achievement.desc}</div>
+    <div class="achievement-popup-player" style="font-size:14px;margin-top:5px;">${teamPlayers}</div>
+  `
+  document.body.appendChild(popup)
+
+  setTimeout(() => {
+    popup.style.animation = 'achievementPop 0.5s ease-out reverse'
+    setTimeout(() => popup.remove(), 500)
+  }, 4000)
+}
+
 function showAchievementPopup(type, playerIndex) {
   const titles = {
-    kingLover: '👑💔 King Lover!',
-    toshi: '🎯 Toshi Master!',
-    kingOfGirls: '👸 King of the Girls!',
+    kingLover: '👑💔 King lover!',
+    toshi: '🎯 طشي!',
+    kingOfGirls: '👸 ملك البنات!',
   }
 
   const descriptions = {
-    kingLover: 'Took the K♠ 2+ times! Someone loves the king! 😂',
-    toshi: 'Finished 4th place (50 pts) in Trix 2+ times!',
-    kingOfGirls: 'Took all 4 Queens in a single Banat game! 👑',
+    kingLover: 'أخد ختيار مرتين أو أكتر! واحد بيحب الختيار! 😂',
+    toshi: 'خلّص رابع (٥٠ نقطة) بتركس مرتين أو أكتر!',
+    kingOfGirls: 'أخد الـ٤ بنات بلعبة بنات وحدة! 👑',
   }
 
   const icons = {
@@ -1598,9 +1896,9 @@ function showAchievementPopup(type, playerIndex) {
     <div class="achievement-popup-icon">${icons[type]}</div>
     <div class="achievement-popup-title">${titles[type]}</div>
     <div class="achievement-popup-desc">${descriptions[type]}</div>
-    <div class="achievement-popup-player">${
-      playerIcons[playerIndex]
-    } ${getPlayerLabel(playerIndex)}</div>
+    <div class="achievement-popup-player">${getPlayerIconInline(
+      playerIndex
+    )} ${getPlayerLabel(playerIndex)}</div>
   `
 
   document.body.appendChild(popup)
@@ -1612,12 +1910,28 @@ function showAchievementPopup(type, playerIndex) {
 }
 
 function checkAchievements(game, scoreChanges) {
-  // King Lover: Took K♠ 2+ times
+  // Queue for achievements to show with staggered delays
+  const achievementQueue = []
+
+  // King Lover: Took K♥ 2+ times
   if (game === 'Khteyar') {
     const taker = khteyarState.taker
     achievements.kingLover[taker]++
     if (achievements.kingLover[taker] === 2) {
-      setTimeout(() => showAchievementPopup('kingLover', taker), 500)
+      achievementQueue.push({ type: 'player', id: 'kingLover', data: taker })
+    }
+
+    // Partnership: King Hunters (team took 4 K♥)
+    if (mode === 'partnership') {
+      const team = getTeamIndex(taker)
+      teamAchievements.kingHunters[team]++
+      if (
+        teamAchievements.kingHunters[team] === 4 &&
+        !teamAchievementShown.kingHunters[team]
+      ) {
+        teamAchievementShown.kingHunters[team] = true
+        achievementQueue.push({ type: 'team', id: 'kingHunters', data: team })
+      }
     }
   }
 
@@ -1627,14 +1941,44 @@ function checkAchievements(game, scoreChanges) {
       if (change.points === 50) {
         achievements.toshi[change.player]++
         if (achievements.toshi[change.player] === 2) {
-          setTimeout(() => showAchievementPopup('toshi', change.player), 500)
+          achievementQueue.push({
+            type: 'player',
+            id: 'toshi',
+            data: change.player,
+          })
         }
       }
     })
+
+    // Partnership: Consistent Losers (team got 50+100 points 2 times)
+    if (mode === 'partnership') {
+      const teamScores = { 0: 0, 1: 0 }
+      scoreChanges.forEach((change) => {
+        const team = getTeamIndex(change.player)
+        teamScores[team] += change.points
+      })
+      // Check if team got exactly 150 points (50+100 or 100+50)
+      Object.keys(teamScores).forEach((team) => {
+        if (teamScores[team] === 150) {
+          teamAchievements.consistentLosers[team]++
+          if (
+            teamAchievements.consistentLosers[team] === 2 &&
+            !teamAchievementShown.consistentLosers[team]
+          ) {
+            teamAchievementShown.consistentLosers[team] = true
+            achievementQueue.push({
+              type: 'team',
+              id: 'consistentLosers',
+              data: parseInt(team),
+            })
+          }
+        }
+      })
+    }
   }
 
-  // King of the Girls: Took all 4 queens in one game
-  if (game === 'Banat') {
+  // King of the Girls: Took all 4 queens in one game (individual mode only)
+  if (game === 'Banat' && mode === 'individual') {
     const queensPerPlayer = [0, 0, 0, 0]
     for (let qi = 0; qi < 4; qi++) {
       if (queensState[qi].taker !== null) {
@@ -1644,17 +1988,71 @@ function checkAchievements(game, scoreChanges) {
     queensPerPlayer.forEach((count, pi) => {
       if (count === 4) {
         achievements.kingOfGirls[pi]++
-        setTimeout(() => showAchievementPopup('kingOfGirls', pi), 500)
+        achievementQueue.push({ type: 'player', id: 'kingOfGirls', data: pi })
       }
     })
   }
+
+  // Partnership: Queen Collectors (team took 4 queens across 2 games)
+  if (game === 'Banat' && mode === 'partnership') {
+    const queensPerPlayer = [0, 0, 0, 0]
+    for (let qi = 0; qi < 4; qi++) {
+      if (queensState[qi].taker !== null) {
+        queensPerPlayer[queensState[qi].taker]++
+      }
+    }
+
+    const teamQueens = { 0: 0, 1: 0 }
+    queensPerPlayer.forEach((count, pi) => {
+      const team = getTeamIndex(pi)
+      teamQueens[team] += count
+    })
+    // Add to running total
+    Object.keys(teamQueens).forEach((team) => {
+      teamAchievements.queenCollectors[team] += teamQueens[team]
+      // Check if team has collected 4 queens total (could be across games)
+      if (
+        teamAchievements.queenCollectors[team] >= 4 &&
+        teamAchievements.queenCollectors[team] < 8 &&
+        !teamAchievementShown.queenCollectors[team]
+      ) {
+        // Only show once when hitting 4
+        if (teamQueens[team] > 0) {
+          // Just completed a game
+          const exactlyFour = teamAchievements.queenCollectors[team] === 4
+          const wasThree =
+            teamAchievements.queenCollectors[team] - teamQueens[team] <= 3
+          if (exactlyFour || (wasThree && teamQueens[team] >= 1)) {
+            teamAchievementShown.queenCollectors[team] = true
+            achievementQueue.push({
+              type: 'team',
+              id: 'queenCollectors',
+              data: parseInt(team),
+            })
+          }
+        }
+      }
+    })
+  }
+
+  // Show all queued achievements with staggered delays
+  achievementQueue.forEach((achievement, index) => {
+    const delay = 500 + index * 4500 // 4.5s between each (4s display + 0.5s gap)
+    setTimeout(() => {
+      if (achievement.type === 'player') {
+        showAchievementPopup(achievement.id, achievement.data)
+      } else {
+        showTeamAchievementPopup(achievement.id, achievement.data)
+      }
+    }, delay)
+  })
 }
 
 function getPlayerAchievements(pi) {
   const badges = []
   if (achievements.kingLover[pi] >= 2) {
     badges.push(
-      `<span class="achievement-badge king-lover" title="King Lover: Took K♠ ${achievements.kingLover[pi]} times">👑💔 King Lover x${achievements.kingLover[pi]}</span>`
+      `<span class="achievement-badge king-lover" title="King Lover: Took K♥ ${achievements.kingLover[pi]} times">👑💔 King Lover x${achievements.kingLover[pi]}</span>`
     )
   }
   if (achievements.toshi[pi] >= 2) {
@@ -1677,7 +2075,9 @@ function showWinnerCelebration() {
   if (mode === 'individual') {
     const maxScore = Math.max(...scores)
     const winnerIndex = scores.indexOf(maxScore)
-    winnerLabel = `${playerIcons[winnerIndex]} ${getPlayerLabel(winnerIndex)}`
+    winnerLabel = `${getPlayerIconInline(winnerIndex)} ${getPlayerLabel(
+      winnerIndex
+    )}`
     winnerScore = maxScore
   } else {
     const team1Score = getTeamScore(0)
@@ -1707,10 +2107,10 @@ function showWinnerCelebration() {
     ${confettiHTML}
     <div class="celebration-content">
       <div class="celebration-trophy">🏆</div>
-      <div class="celebration-title">🎉 WINNER! 🎉</div>
+      <div class="celebration-title">🎉 الفايز! 🎉</div>
       <div class="celebration-winner">${winnerLabel}</div>
-      <div class="celebration-score">${winnerScore} Points</div>
-      <button class="celebration-btn" onclick="closeCelebration()">Continue</button>
+      <div class="celebration-score">${winnerScore} نقطة</div>
+      <button class="celebration-btn" onclick="closeCelebration()">كمِّل</button>
     </div>
   `
 
