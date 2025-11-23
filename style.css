@@ -526,11 +526,19 @@ body.no-scroll .container {
   box-shadow: none;
 }
 
+.player-seat.clickable {
+  cursor: pointer;
+}
+
+.player-seat.clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+}
+
 .player-seat.selected {
   border-color: #ffd700;
   background: linear-gradient(145deg, #3d4a5f, #2a3545);
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-  cursor: pointer;
 }
 
 .player-seat.selected:hover {

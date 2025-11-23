@@ -456,7 +456,7 @@ function renderTrixForm(f) {
         ${[0, 1, 2, 3]
           .map(
             (pi) => `
-          <div class="player-seat ${
+          <div class="player-seat clickable ${
             trixPositions.includes(pi) ? 'disabled' : ''
           }" onclick="selectTrixPlayer(${pi})">
             ${getPlayerIcon(pi)}
@@ -494,8 +494,8 @@ function renderLatoshForm(f) {
 
   f.innerHTML = `
     <div class="game-form">
-      <div class="instruction-text">وزِّع ١٣ ورقة لطش (-١٥ نقطة لكل ورقة)</div>
-      <div class="remaining-cards">متبقي: ${remaining} ورقة</div>
+      <div class="instruction-text">وزِّع ١٣ لطش (-١٥ نقطة لكل لطش)</div>
+      <div class="remaining-cards">متبقي: ${remaining} </div>
       <div class="player-table">
         ${[0, 1, 2, 3]
           .map(
@@ -667,7 +667,7 @@ function renderGirlsForm(f) {
           ${[0, 1, 2, 3]
             .map(
               (pi) => `
-            <div class="player-seat" onclick="assignQueenTaker(${pi})">
+            <div class="player-seat clickable" onclick="assignQueenTaker(${pi})">
               ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
@@ -700,7 +700,7 @@ function renderGirlsForm(f) {
           ${[0, 1, 2, 3]
             .map(
               (pi) => `
-            <div class="player-seat" onclick="assignQueenDoubler(${pi})">
+            <div class="player-seat clickable" onclick="assignQueenDoubler(${pi})">
               ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
@@ -867,7 +867,7 @@ function renderKhteyarForm(f) {
           ${[0, 1, 2, 3]
             .map(
               (pi) => `
-            <div class="player-seat" onclick="assignKhteyarDoubler(${pi})">
+            <div class="player-seat clickable" onclick="assignKhteyarDoubler(${pi})">
               ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
@@ -900,7 +900,7 @@ function renderKhteyarForm(f) {
             .filter((pi) => pi !== khteyarState.taker)
             .map(
               (pi) => `
-            <div class="player-seat" onclick="assignKhteyarForcer(${pi})">
+            <div class="player-seat clickable" onclick="assignKhteyarForcer(${pi})">
               ${getPlayerIcon(pi)}
               <h3>${getPlayerLabel(pi)}</h3>
             </div>
@@ -2080,12 +2080,12 @@ function getTeamAchievements(ti) {
   const badges = []
   if (teamAchievements.queenCollectors[ti] >= 1) {
     badges.push(
-      `<span class="achievement-badge queenCollectors" title="فتحو كازينو: أخدو كل الـ٤ بنات ${teamAchievements.queenCollectors[ti]} مرة">👸👸👸👸 فتحو كازينو! x${teamAchievements.queenCollectors[ti]}</span>`
+      `<span class="achievement-badge queenCollectors" title="فتحو كازينو: بلعو الـ٤ بنات ${teamAchievements.queenCollectors[ti]} مرة">👸👸👸👸 فتحو كازينو! x${teamAchievements.queenCollectors[ti]}</span>`
     )
   }
   if (teamAchievements.kingHunters[ti] >= 4) {
     badges.push(
-      `<span class="achievement-badge kingHunters" title="عاشقين الختيار: أخدو ختيار ${
+      `<span class="achievement-badge kingHunters" title="عاشقين الختيار: بلعو ختيار ${
         teamAchievements.kingHunters[ti]
       } مرات">👑💔💔💔 عاشقين الختيار! x${Math.floor(
         teamAchievements.kingHunters[ti] / 4
