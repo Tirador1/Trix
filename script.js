@@ -629,7 +629,7 @@ function renderGirlsForm(f) {
                       queensState[qi].doubled &&
                       queensState[qi].doubler !== null
                         ? `
-                      <div style="font-size:12px;margin-top:5px;color:#666;">ضعّفو ${getPlayerIconInline(
+                      <div style="font-size:12px;margin-top:5px;color:#666;">دبلها ${getPlayerIconInline(
                         queensState[qi].doubler
                       )} ${getPlayerLabel(queensState[qi].doubler)}</div>
                     `
@@ -1261,11 +1261,11 @@ function finishGame(game, details, scoreChanges) {
   }
 
   // Add game-specific data for table rendering
-  if (game === 'Trix') {
+  if (game === 'تركس') {
     record.positions = [...trixPositions]
-  } else if (game === 'Latosh' || game === 'Dinari') {
+  } else if (game === 'لطش' || game === 'ديناري') {
     record.cardCounts = [...cardCounts]
-  } else if (game === 'Banat') {
+  } else if (game === 'بنات') {
     // Store queen details for each player
     record.queensDetails = []
     for (let pi = 0; pi < 4; pi++) {
@@ -1278,7 +1278,7 @@ function finishGame(game, details, scoreChanges) {
       }
       record.queensDetails[pi] = queens.length > 0 ? queens.join(' ') : '-'
     }
-  } else if (game === 'Khteyar') {
+  } else if (game === 'ختيار') {
     record.khteyarTaker = khteyarState.taker
     record.khteyarDoubled = khteyarState.doubled
   }
@@ -1380,7 +1380,7 @@ function renderGameTable(h, realIdx, isKingdomComplete = false) {
           <tr>
             <th>Player</th>
             <th>Score</th>
-            ${h.game === 'Banat' ? '<th>Details</th>' : ''}
+            ${h.game === 'بنات' ? '<th>Details</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -1394,18 +1394,18 @@ function renderGameTable(h, realIdx, isKingdomComplete = false) {
     const scoreDisplay = score > 0 ? `+${score}` : score
 
     let details = ''
-    if (h.game === 'Trix') {
+    if (h.game === 'تركس') {
       const position = h.positions?.indexOf(pi)
       if (position === 0) details = '🥇 1st'
       else if (position === 1) details = '🥈 2nd'
       else if (position === 2) details = '🥉 3rd'
       else if (position === 3) details = '4th'
-    } else if (h.game === 'Latosh' || h.game === 'Dinari') {
+    } else if (h.game === 'لطش' || h.game === 'ديناري') {
       const count = h.cardCounts?.[pi] || 0
       if (count > 0) details = `${count} cards`
-    } else if (h.game === 'Banat') {
+    } else if (h.game === 'بنات') {
       details = h.queensDetails?.[pi] || '-'
-    } else if (h.game === 'Khteyar') {
+    } else if (h.game === 'ختيار') {
       if (h.khteyarTaker === pi) {
         details = h.khteyarDoubled ? '👑 (Doubled)' : '👑'
       }
@@ -1418,7 +1418,7 @@ function renderGameTable(h, realIdx, isKingdomComplete = false) {
           ${getPlayerLabel(pi)}
         </td>
         <td class="score-cell ${scoreClass}">${scoreDisplay}</td>
-        ${h.game === 'Banat' ? `<td class="details-cell">${details}</td>` : ''}
+        ${h.game === 'بنات' ? `<td class="details-cell">${details}</td>` : ''}
       </tr>
     `
   }
@@ -1594,18 +1594,13 @@ function showKingdomOverview() {
 
       <div class="action-row" style="margin-top:20px;">'
 
-        <button class="action-btn cancel" onclick="editKingdom()" style="background:#ff9800;">📝 عدِّل المملكة</button>
-        <button class="action-btn double" onclick="confirmKingdom()" style="background:#4ecdc4;color:#1a1a2e;flex:2;">✅ أكِّد و كمِّل</button>
+
+        <button class="action-btn double" onclick="confirmKingdom()" style="background:#4ecdc4;color:#1a1a2e;">✅ أكِّد و كمِّل</button>
       </div>
     </div>
   `
 
   c.innerHTML = overviewHtml
-}
-
-// Edit Kingdom - return to game selection
-function editKingdom() {
-  selectOwner(currentOwner)
 }
 
 // Confirm Kingdom and move to next player
@@ -1677,12 +1672,12 @@ function deleteGame(idx) {
   // Rebuild achievements from remaining history
   history.forEach((h) => {
     // King Lover: Count Khteyar games
-    if (h.game === 'Khteyar' && h.khteyarTaker !== undefined) {
+    if (h.game === 'ختيار' && h.khteyarTaker !== undefined) {
       achievements.kingLover[h.khteyarTaker]++
     }
 
     // Toshi: Count 50-point Trix finishes (4th place)
-    if (h.game === 'Trix' && h.positions) {
+    if (h.game === 'تركس' && h.positions) {
       const fourthPlacePlayer = h.positions[3]
       if (fourthPlacePlayer !== undefined) {
         achievements.toshi[fourthPlacePlayer]++
@@ -1690,7 +1685,7 @@ function deleteGame(idx) {
     }
 
     // King of the Girls: Count 4-queen games
-    if (h.game === 'Banat' && h.queensDetails) {
+    if (h.game === 'بنات' && h.queensDetails) {
       const queensPerPlayer = [0, 0, 0, 0]
       // Parse queensDetails to count queens per player
       h.queensDetails.forEach((details, pi) => {
@@ -1914,7 +1909,7 @@ function checkAchievements(game, scoreChanges) {
   const achievementQueue = []
 
   // King Lover: Took K♥ 2+ times
-  if (game === 'Khteyar') {
+  if (game === 'ختيار') {
     const taker = khteyarState.taker
     achievements.kingLover[taker]++
     if (achievements.kingLover[taker] === 2) {
@@ -1936,7 +1931,7 @@ function checkAchievements(game, scoreChanges) {
   }
 
   // Toshi: Got 50 points in Trix (4th place) 2+ times
-  if (game === 'Trix') {
+  if (game === 'تركس') {
     scoreChanges.forEach((change) => {
       if (change.points === 50) {
         achievements.toshi[change.player]++
@@ -1978,7 +1973,7 @@ function checkAchievements(game, scoreChanges) {
   }
 
   // King of the Girls: Took all 4 queens in one game (individual mode only)
-  if (game === 'Banat' && mode === 'individual') {
+  if (game === 'بنات' && mode === 'individual') {
     const queensPerPlayer = [0, 0, 0, 0]
     for (let qi = 0; qi < 4; qi++) {
       if (queensState[qi].taker !== null) {
@@ -1994,7 +1989,7 @@ function checkAchievements(game, scoreChanges) {
   }
 
   // Partnership: Queen Collectors (team took 4 queens across 2 games)
-  if (game === 'Banat' && mode === 'partnership') {
+  if (game === 'بنات' && mode === 'partnership') {
     const queensPerPlayer = [0, 0, 0, 0]
     for (let qi = 0; qi < 4; qi++) {
       if (queensState[qi].taker !== null) {
