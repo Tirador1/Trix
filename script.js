@@ -44,17 +44,12 @@ let achievements = {
 
 // Team achievements (partnership mode only)
 let teamAchievements = {
-  queenCollectors: {}, // Track total queens taken by team across games
+  queenCollectors: {}, // Track count of games where team took all 4 queens
   kingHunters: {}, // Track K♥ taken by team
   consistentLosers: {}, // Track 50+100 Trix scores by team
 }
 
-// Team achievement flags to show popup only once
-let teamAchievementShown = {
-  queenCollectors: { 0: false, 1: false },
-  kingHunters: { 0: false, 1: false },
-  consistentLosers: { 0: false, 1: false },
-}
+// Team achievement flags removed - achievements can trigger multiple times
 
 // Game-specific state
 let cardCounts = [0, 0, 0, 0] // For Latosh/Dinari
@@ -169,11 +164,6 @@ function startGame() {
     kingHunters: { 0: 0, 1: 0 },
     consistentLosers: { 0: 0, 1: 0 },
   }
-  teamAchievementShown = {
-    queenCollectors: { 0: false, 1: false },
-    kingHunters: { 0: false, 1: false },
-    consistentLosers: { 0: false, 1: false },
-  }
   for (let i = 0; i < 4; i++) {
     achievements.kingLover[i] = 0
     achievements.toshi[i] = 0
@@ -264,6 +254,7 @@ function renderScoreboard() {
         const s = getTeamScore(ti)
         const cls = s > 0 ? 'positive' : s < 0 ? 'negative' : ''
         const ps = ti === 0 ? [0, 2] : [1, 3]
+        const teamAchievementBadges = getTeamAchievements(ti)
         let kingdomHtml = ''
         ps.forEach((pi, idx) => {
           const kd = Object.entries(kingdoms[pi])
@@ -272,13 +263,23 @@ function renderScoreboard() {
                 `<div class="kingdom-item ${v ? 'done' : 'pending'}">${k}</div>`
             )
             .join('')
-          kingdomHtml += `<h5>لاعب ${
-            idx + 1
-          }</h5><div class="kingdom-tracker">${kd}</div>`
+          const playerAchievementBadges = getPlayerAchievements(pi)
+          kingdomHtml += `<h5>${getPlayerLabel(pi)}</h5>
+            ${
+              playerAchievementBadges
+                ? `<div style="margin-top:5px;margin-bottom:5px;">${playerAchievementBadges}</div>`
+                : ''
+            }
+            <div class="kingdom-tracker">${kd}</div>`
         })
         return `<div class="score-card">
         <h3>${teamNames[ti]}</h3>
         <div class="score ${cls}">${s}</div>
+        ${
+          teamAchievementBadges
+            ? `<div style="margin-top:10px;">${teamAchievementBadges}</div>`
+            : ''
+        }
         <div class="kingdom-section">${kingdomHtml}</div>
       </div>`
       })
@@ -1592,9 +1593,7 @@ function showKingdomOverview() {
         </div>
       </div>
 
-      <div class="action-row" style="margin-top:20px;">'
-
-
+      <div class="action-row" style="margin-top:20px;">
         <button class="action-btn double" onclick="confirmKingdom()" style="background:#4ecdc4;color:#1a1a2e;">✅ أكِّد و كمِّل</button>
       </div>
     </div>
@@ -1663,6 +1662,11 @@ function deleteGame(idx) {
     toshi: {},
     kingOfGirls: {},
   }
+  teamAchievements = {
+    queenCollectors: { 0: 0, 1: 0 },
+    kingHunters: { 0: 0, 1: 0 },
+    consistentLosers: { 0: 0, 1: 0 },
+  }
   for (let i = 0; i < 4; i++) {
     achievements.kingLover[i] = 0
     achievements.toshi[i] = 0
@@ -1674,6 +1678,11 @@ function deleteGame(idx) {
     // King Lover: Count Khteyar games
     if (h.game === 'ختيار' && h.khteyarTaker !== undefined) {
       achievements.kingLover[h.khteyarTaker]++
+      // Team: King Hunters
+      if (mode === 'partnership') {
+        const team = getTeamIndex(h.khteyarTaker)
+        teamAchievements.kingHunters[team]++
+      }
     }
 
     // Toshi: Count 50-point Trix finishes (4th place)
@@ -1681,6 +1690,19 @@ function deleteGame(idx) {
       const fourthPlacePlayer = h.positions[3]
       if (fourthPlacePlayer !== undefined) {
         achievements.toshi[fourthPlacePlayer]++
+      }
+      // Team: Consistent Losers - check for 150 points (3rd + 4th place = 100 + 50)
+      if (mode === 'partnership') {
+        const teamScores = { 0: 0, 1: 0 }
+        h.scoreChanges.forEach((points, player) => {
+          const team = getTeamIndex(player)
+          teamScores[team] += points
+        })
+        Object.keys(teamScores).forEach((team) => {
+          if (teamScores[team] === 150) {
+            teamAchievements.consistentLosers[team]++
+          }
+        })
       }
     }
 
@@ -1700,6 +1722,19 @@ function deleteGame(idx) {
           achievements.kingOfGirls[pi]++
         }
       })
+      // Team: Queen Collectors - check if team took all 4 queens
+      if (mode === 'partnership') {
+        const teamQueens = { 0: 0, 1: 0 }
+        queensPerPlayer.forEach((count, pi) => {
+          const team = getTeamIndex(pi)
+          teamQueens[team] += count
+        })
+        Object.keys(teamQueens).forEach((team) => {
+          if (teamQueens[team] === 4) {
+            teamAchievements.queenCollectors[team]++
+          }
+        })
+      }
     }
   })
 
@@ -1868,7 +1903,7 @@ function showTeamAchievementPopup(type, teamIndex) {
 
 function showAchievementPopup(type, playerIndex) {
   const titles = {
-    kingLover: '👑💔 King lover!',
+    kingLover: '👑💔 عاشق الختيار!',
     toshi: '🎯 طشي!',
     kingOfGirls: '👸 ملك البنات!',
   }
@@ -1916,15 +1951,11 @@ function checkAchievements(game, scoreChanges) {
       achievementQueue.push({ type: 'player', id: 'kingLover', data: taker })
     }
 
-    // Partnership: King Hunters (team took 4 K♥)
+    // Partnership: King Hunters (team took K♥ 4 times)
     if (mode === 'partnership') {
       const team = getTeamIndex(taker)
       teamAchievements.kingHunters[team]++
-      if (
-        teamAchievements.kingHunters[team] === 4 &&
-        !teamAchievementShown.kingHunters[team]
-      ) {
-        teamAchievementShown.kingHunters[team] = true
+      if (teamAchievements.kingHunters[team] % 4 === 0) {
         achievementQueue.push({ type: 'team', id: 'kingHunters', data: team })
       }
     }
@@ -1956,11 +1987,7 @@ function checkAchievements(game, scoreChanges) {
       Object.keys(teamScores).forEach((team) => {
         if (teamScores[team] === 150) {
           teamAchievements.consistentLosers[team]++
-          if (
-            teamAchievements.consistentLosers[team] === 2 &&
-            !teamAchievementShown.consistentLosers[team]
-          ) {
-            teamAchievementShown.consistentLosers[team] = true
+          if (teamAchievements.consistentLosers[team] % 2 === 0) {
             achievementQueue.push({
               type: 'team',
               id: 'consistentLosers',
@@ -1988,7 +2015,7 @@ function checkAchievements(game, scoreChanges) {
     })
   }
 
-  // Partnership: Queen Collectors (team took 4 queens across 2 games)
+  // Partnership: Queen Collectors (team took all 4 queens in one game)
   if (game === 'بنات' && mode === 'partnership') {
     const queensPerPlayer = [0, 0, 0, 0]
     for (let qi = 0; qi < 4; qi++) {
@@ -2002,30 +2029,16 @@ function checkAchievements(game, scoreChanges) {
       const team = getTeamIndex(pi)
       teamQueens[team] += count
     })
-    // Add to running total
+
+    // Check if team took all 4 queens in THIS game
     Object.keys(teamQueens).forEach((team) => {
-      teamAchievements.queenCollectors[team] += teamQueens[team]
-      // Check if team has collected 4 queens total (could be across games)
-      if (
-        teamAchievements.queenCollectors[team] >= 4 &&
-        teamAchievements.queenCollectors[team] < 8 &&
-        !teamAchievementShown.queenCollectors[team]
-      ) {
-        // Only show once when hitting 4
-        if (teamQueens[team] > 0) {
-          // Just completed a game
-          const exactlyFour = teamAchievements.queenCollectors[team] === 4
-          const wasThree =
-            teamAchievements.queenCollectors[team] - teamQueens[team] <= 3
-          if (exactlyFour || (wasThree && teamQueens[team] >= 1)) {
-            teamAchievementShown.queenCollectors[team] = true
-            achievementQueue.push({
-              type: 'team',
-              id: 'queenCollectors',
-              data: parseInt(team),
-            })
-          }
-        }
+      if (teamQueens[team] === 4) {
+        teamAchievements.queenCollectors[team]++
+        achievementQueue.push({
+          type: 'team',
+          id: 'queenCollectors',
+          data: parseInt(team),
+        })
       }
     })
   }
@@ -2047,17 +2060,45 @@ function getPlayerAchievements(pi) {
   const badges = []
   if (achievements.kingLover[pi] >= 2) {
     badges.push(
-      `<span class="achievement-badge king-lover" title="King Lover: Took K♥ ${achievements.kingLover[pi]} times">👑💔 King Lover x${achievements.kingLover[pi]}</span>`
+      `<span class="achievement-badge king-lover" title="عاشق الختيار: أخد ختيار ${achievements.kingLover[pi]} مرات">👑💔 عاشق الختيار x${achievements.kingLover[pi]}</span>`
     )
   }
   if (achievements.toshi[pi] >= 2) {
     badges.push(
-      `<span class="achievement-badge toshi" title="Toshi: 4th place ${achievements.toshi[pi]} times">🎯 Toshi x${achievements.toshi[pi]}</span>`
+      `<span class="achievement-badge toshi" title="طشي: جاب رابع ${achievements.toshi[pi]} مرات">🎯 طشي x${achievements.toshi[pi]}</span>`
     )
   }
   if (achievements.kingOfGirls[pi] >= 1) {
     badges.push(
-      `<span class="achievement-badge king-of-girls" title="King of the Girls: All 4 queens ${achievements.kingOfGirls[pi]} time(s)">👸 King of Girls x${achievements.kingOfGirls[pi]}</span>`
+      `<span class="achievement-badge king-of-girls" title="ملك البنات: أخد الـ٤ بنات ${achievements.kingOfGirls[pi]} مرة">👸 ملك البنات x${achievements.kingOfGirls[pi]}</span>`
+    )
+  }
+  return badges.join('')
+}
+
+function getTeamAchievements(ti) {
+  const badges = []
+  if (teamAchievements.queenCollectors[ti] >= 1) {
+    badges.push(
+      `<span class="achievement-badge queenCollectors" title="فتحو كازينو: أخدو كل الـ٤ بنات ${teamAchievements.queenCollectors[ti]} مرة">👸👸👸👸 فتحو كازينو! x${teamAchievements.queenCollectors[ti]}</span>`
+    )
+  }
+  if (teamAchievements.kingHunters[ti] >= 4) {
+    badges.push(
+      `<span class="achievement-badge kingHunters" title="عاشقين الختيار: أخدو ختيار ${
+        teamAchievements.kingHunters[ti]
+      } مرات">👑💔💔💔 عاشقين الختيار! x${Math.floor(
+        teamAchievements.kingHunters[ti] / 4
+      )}</span>`
+    )
+  }
+  if (teamAchievements.consistentLosers[ti] >= 2) {
+    badges.push(
+      `<span class="achievement-badge consistentLosers" title="دايماً طشي: جابو تالت ورابع ${
+        teamAchievements.consistentLosers[ti]
+      } مرات">🎯🤦 دايماً... طشي! x${Math.floor(
+        teamAchievements.consistentLosers[ti] / 2
+      )}</span>`
     )
   }
   return badges.join('')

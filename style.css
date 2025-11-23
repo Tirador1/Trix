@@ -511,7 +511,6 @@ body.no-scroll .container {
   border-radius: 12px;
   padding: 18px;
   text-align: center;
-  cursor: pointer;
   transition: all 0.3s;
   border: 3px solid transparent;
   position: relative;
@@ -523,14 +522,20 @@ body.no-scroll .container {
 }
 
 .player-seat:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+  transform: none;
+  box-shadow: none;
 }
 
 .player-seat.selected {
   border-color: #ffd700;
   background: linear-gradient(145deg, #3d4a5f, #2a3545);
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  cursor: pointer;
+}
+
+.player-seat.selected:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
 }
 
 .player-seat.disabled {
